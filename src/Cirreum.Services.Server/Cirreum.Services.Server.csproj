@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<RootNamespace>Cirreum</RootNamespace>
+		<Description>The Service Library for Servers (Web Api or Web App).</Description>
+		<PackageTags>cirreum;infrastructure;services;server</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>		
+		<PackageReference Include="Polly" Version="8.6.4" />
+		<PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
+		<PackageReference Include="Cirreum.Core" Version="1.0.14" />
+	</ItemGroup>
+
+	<ItemGroup>
+	
+		<Using Include="Microsoft.AspNetCore.Http" />
+		<Using Include="Microsoft.Extensions.Logging" />
+
+		<Using Include="Cirreum" />		
+		<Using Include="Cirreum.Exceptions" />
+		<Using Include="Cirreum.FileSystem" />
+	
+	</ItemGroup>
+
+</Project>
