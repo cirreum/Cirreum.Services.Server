@@ -2,7 +2,6 @@
 
 using Cirreum;
 using Cirreum.Clock;
-using Cirreum.Conductor.Caching;
 using Cirreum.Diagnostics;
 using Cirreum.Health;
 using Cirreum.Messaging;
@@ -78,12 +77,6 @@ public static class HostingExtensions {
 		//
 		services
 			.TryAddSingleton<IDistributedTransportPublisher, EmptyTransportPublisher>();
-
-		//
-		// Conductor Cacheable Query Service (HybridCachce)
-		//
-		services
-			.TryAddSingleton<ICacheableQueryService, HybridCacheableQueryService>();
 
 		return services;
 
