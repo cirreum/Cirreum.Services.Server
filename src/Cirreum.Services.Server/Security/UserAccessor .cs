@@ -12,6 +12,8 @@ sealed class UserAccessor(
 
 	private const string UserContextKey = "__User_Context_Key";
 	private static readonly IUserState AnonymousUserInstance = new ServerUser();
+	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
+		new ValueTask<IUserState>(AnonymousUserInstance);
 
 	private readonly IHttpContextAccessor _httpContextAccessor =
 		httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
@@ -20,19 +22,19 @@ sealed class UserAccessor(
 
 		var context = this._httpContextAccessor.HttpContext;
 		if (context == null) {
-			return ValueTask.FromResult(AnonymousUserInstance);
+			return AnonymousUserValueTaskInstance;
 		}
 
 		// Check if we already have a UserState for this request
 		if (context.Items.TryGetValue(UserContextKey, out var existingUser)
 			&& existingUser is ServerUser user) {
-			return ValueTask.FromResult<IUserState>(user);
+			return new ValueTask<IUserState>(user);
 		}
 
 		var principal = context.User;
 		if (principal?.Identity == null || !principal.Identity.IsAuthenticated) {
 			context.Items[UserContextKey] = AnonymousUserInstance;
-			return ValueTask.FromResult(AnonymousUserInstance);
+			return AnonymousUserValueTaskInstance;
 		}
 
 		string? appName = context.Request.Headers[RemoteIdentityConstants.AppNameHeader];
@@ -47,7 +49,7 @@ sealed class UserAccessor(
 		user = new ServerUser();
 		user.SetAuthenticatedPrincipal(principal, appName ?? "");
 		context.Items[UserContextKey] = user;
-		return ValueTask.FromResult<IUserState>(user);
+		return new ValueTask<IUserState>(user);
 
 	}
 
