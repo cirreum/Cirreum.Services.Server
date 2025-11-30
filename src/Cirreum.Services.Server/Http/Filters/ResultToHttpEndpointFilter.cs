@@ -20,23 +20,22 @@ public sealed class ResultToHttpEndpointFilter(
 	public async ValueTask<object?> InvokeAsync(
 		EndpointFilterInvocationContext context,
 		EndpointFilterDelegate next) {
-		try {
-			var result = await next(context);
-			// 1. Already an HTTP result? Leave it alone.
-			if (result is HttpResult httpResult) {
-				return httpResult;
-			}
-			// 2. Cirreum Result or Result<T>
-			if (result is DomainResult cirreumResult) {
-				return this.MapDomainResult(cirreumResult, context.HttpContext);
-			}
-			// 3. Any other type – let Minimal APIs serialize it normally.
-			return result;
-		} catch (Exception ex) {
-			// Exceptions that escape the railway still go through your
-			// exception → problem+json mapper.
-			return this.MapFailure(ex, context.HttpContext);
+
+		// We let exceptions bubble up naturally
+		var result = await next(context);
+
+		// 1. Already an HTTP result? Leave it alone.
+		if (result is HttpResult httpResult) {
+			return httpResult;
 		}
+
+		// 2. Cirreum Result or Result<T>
+		if (result is DomainResult cirreumResult) {
+			return this.MapDomainResult(cirreumResult, context.HttpContext);
+		}
+
+		// 3. Any other type – let Minimal APIs serialize it normally.
+		return result;
 	}
 
 	private HttpResult MapDomainResult(DomainResult result, HttpContext httpContext) {
@@ -50,9 +49,7 @@ public sealed class ResultToHttpEndpointFilter(
 	}
 
 	private JsonHttpResult<ExceptionModel> MapFailure(Exception error, HttpContext httpContext) {
-		var model = error.ToExceptionModel(
-			httpContext.Response.StatusCode,
-			environment.IsDevelopment());
+		var model = error.ToExceptionModel(environment.IsDevelopment());
 		model.ApplyDefaults(httpContext);
 		if (logger.IsEnabled(LogLevel.Debug)) {
 			var errorType = error.GetType().Name;

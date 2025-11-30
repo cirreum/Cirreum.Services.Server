@@ -42,6 +42,11 @@ public sealed class GlobalUnhandledExceptionHandler(IAuthorizationPolicyProvider
 
 	public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken) {
 
+		// Let cancellation bubble to runtime - client is gone anyway
+		if (exception is OperationCanceledException || httpContext.RequestAborted.IsCancellationRequested) {
+			return false;
+		}
+
 		if (CanWrite(httpContext) is false) {
 			return false;
 		}

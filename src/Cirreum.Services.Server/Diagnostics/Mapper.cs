@@ -103,6 +103,17 @@ internal static class Mapper {
 	/// </summary>
 	/// <typeparam name="TException"><typeparamref name="TException"/>.</typeparam>
 	/// <param name="exception">The source exception.</param>
+	/// <param name="isDev">Is this the development environment.</param>
+	/// <returns>The mapped <see cref="ExceptionModel"/></returns>
+	public static ExceptionModel ToExceptionModel<TException>(
+		this TException exception,
+		bool isDev) where TException : Exception
+		=> exception.ToExceptionModel(StatusCodes.Status500InternalServerError, isDev);
+	/// <summary>
+	/// Maps an exception to an <see cref="ExceptionModel"/>
+	/// </summary>
+	/// <typeparam name="TException"><typeparamref name="TException"/>.</typeparam>
+	/// <param name="exception">The source exception.</param>
 	/// <param name="statusCode">The <c>HttpContext.Response.StatusCode</c> for the current request.</param>
 	/// <param name="isDev">Is this the development environment.</param>
 	/// <returns>The mapped <see cref="ExceptionModel"/></returns>
@@ -145,8 +156,10 @@ internal static class Mapper {
 	}
 
 	private static ExceptionModel FromUnknownException<TException>(TException e, int status, bool isDev) where TException : Exception {
+		// Don't trust 2XX or unset status codes for exceptions
+		var effectiveStatus = status >= 400 ? status : 500;
 		return new ExceptionModel {
-			Status = status,
+			Status = effectiveStatus,
 			Detail = isDev ? e.Message : ""
 		};
 	}
