@@ -51,9 +51,9 @@ public sealed class ResultToHttpEndpointFilter(
 	private JsonHttpResult<ExceptionModel> MapFailure(Exception error, HttpContext httpContext) {
 		var model = error.ToExceptionModel(environment.IsDevelopment());
 		model.ApplyDefaults(httpContext);
-		if (logger.IsEnabled(LogLevel.Debug)) {
+		if (logger.IsEnabled(LogLevel.Error)) {
 			var errorType = error.GetType().Name;
-			logger.LogDebug(
+			logger.LogError(
 				"Result failure with {ExceptionType} (Status: {StatusCode}) for {Path}",
 				errorType,
 				model.Status,
