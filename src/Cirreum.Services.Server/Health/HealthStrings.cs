@@ -16,6 +16,11 @@ public static class HealthStrings {
 	public static readonly string HealthCheckBaseUriKey = "Cirreum:HealthChecks:BaseUri";
 
 	/// <summary>
+	/// Cirreum:HealthChecks:Host
+	/// </summary>
+	public static readonly string HealthCheckHostKey = "Cirreum:HealthChecks:Host";
+
+	/// <summary>
 	/// /health
 	/// </summary>
 	public static readonly string HealthDefaultBaseUriPath = "/health";
