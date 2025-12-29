@@ -127,6 +127,7 @@ internal static class Mapper {
 			UnauthorizedAccessException unauthorizedAccessException => FromUnauthorizedAccessException(unauthorizedAccessException, isDev),
 			ForbiddenAccessException forbiddenAccessException => FromForbiddenAccessException(forbiddenAccessException, isDev),
 			SecurityException securityException => FromSecurityException(securityException, isDev),
+			ConflictException conflictException => FromConflictException(conflictException),
 			AlreadyExistsException alreadyExistsException => FromAlreadyExistException(alreadyExistsException),
 			BadRequestException badRequestException => FromBadRequestException(badRequestException),
 			BadHttpRequestException validationException => FromBadHttpRequestException(validationException, isDev),
@@ -217,6 +218,13 @@ internal static class Mapper {
 			})]
 		};
 
+	}
+	
+	private static ExceptionModel FromConflictException(ConflictException exception) {
+		return new ExceptionModel {
+			StatusCode = HttpStatusCode.Conflict,
+			Detail = exception.Message
+		};
 	}
 
 	private static ExceptionModel FromBadHttpRequestException(BadHttpRequestException exception, bool isDev) {
