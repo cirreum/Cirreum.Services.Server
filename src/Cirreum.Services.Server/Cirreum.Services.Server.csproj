@@ -13,7 +13,7 @@
 	<ItemGroup>		
 		<PackageReference Include="Polly" Version="8.6.5" />
 		<PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
-		<PackageReference Include="Cirreum.Core" Version="1.0.27" />
+		<PackageReference Include="Cirreum.Core" Version="1.0.28" />
 	</ItemGroup>
 
 	<ItemGroup>
