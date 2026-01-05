@@ -21,6 +21,8 @@ public static class HostingExtensions {
 	public static IServiceCollection AddGlobalExceptionHandling(this IServiceCollection services) {
 
 		services
+			// Disable the default exception handler behavior (e.g., redirect to /Error)
+			// so our GlobalUnhandledExceptionHandler has full control.
 			.AddExceptionHandler(o => {
 				o.ExceptionHandler = context => Task.CompletedTask;
 			})

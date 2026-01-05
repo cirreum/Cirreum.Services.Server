@@ -1,6 +1,7 @@
 ﻿namespace Cirreum.Diagnostics;
 
 using Cirreum.Exceptions;
+using Cirreum.Extensions;
 using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
@@ -168,40 +169,35 @@ internal static class Mapper {
 	private static ExceptionModel FromAuthenticationException(AuthenticationException exception, bool isDev) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Unauthorized,
-			Detail = isDev ? exception.Message : "Authentication required",
-			Failures = [],
+			Detail = isDev ? exception.Message : "Authentication required"
 		};
 	}
 
 	private static ExceptionModel FromUnauthenticatedAccessException(UnauthenticatedAccessException exception, bool isDev) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Unauthorized,
-			Detail = isDev ? exception.Message : "Authentication required",
-			Failures = [],
+			Detail = isDev ? exception.Message : "Authentication required"
 		};
 	}
 
 	private static ExceptionModel FromUnauthorizedAccessException(UnauthorizedAccessException exception, bool isDev) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Forbidden,
-			Detail = isDev ? exception.Message : "Access denied",
-			Failures = [],
+			Detail = isDev ? exception.Message : "Access denied"
 		};
 	}
 
 	private static ExceptionModel FromForbiddenAccessException(ForbiddenAccessException exception, bool isDev) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Forbidden,
-			Detail = isDev ? exception.Message : "Access denied",
-			Failures = [],
+			Detail = isDev ? exception.Message : "Access denied"
 		};
 	}
 
 	private static ExceptionModel FromSecurityException(SecurityException exception, bool isDev) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Forbidden,
-			Detail = isDev ? exception.Message : "Access denied",
-			Failures = [],
+			Detail = isDev ? exception.Message : "Access denied"
 		};
 	}
 
@@ -219,7 +215,7 @@ internal static class Mapper {
 		};
 
 	}
-	
+
 	private static ExceptionModel FromConflictException(ConflictException exception) {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.Conflict,
@@ -286,16 +282,9 @@ internal static class Mapper {
 		return new ExceptionModel {
 			StatusCode = HttpStatusCode.UnprocessableEntity,
 			Detail = exception.Message,
-			Failures = [.. exception.Errors.Select(e => FailureModel.FromFluentValidationFailure(e))],
+			Failures = [.. exception.Errors.Select(e => e.ToFailureModel())],
 		};
 
-	}
-
-	internal static string GetDefaultType(int statusCode) {
-		return $"https://httpstatuses.io/{statusCode}";
-	}
-	internal static string GetDefaultType(HttpStatusCode statusCode) {
-		return $"https://httpstatuses.io/{(int)statusCode}";
 	}
 
 }
