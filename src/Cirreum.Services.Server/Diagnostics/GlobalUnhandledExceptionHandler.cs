@@ -36,9 +36,11 @@ using System.Threading.Tasks;
 /// </para>
 /// </remarks>
 public sealed class GlobalUnhandledExceptionHandler(
-	IAuthorizationPolicyProvider? policyProvider
+	IServiceProvider serviceProvider
 ) : IExceptionHandler {
 
+	private readonly IAuthorizationPolicyProvider? _policyProvider =
+		serviceProvider.GetService<IAuthorizationPolicyProvider>();
 	private static readonly MediaTypeHeaderValue _jsonMediaType = new("application/json");
 	private static readonly MediaTypeHeaderValue _problemDetailsJsonMediaType = new("application/problem+json");
 
@@ -63,7 +65,9 @@ public sealed class GlobalUnhandledExceptionHandler(
 		var isDev = env.IsDevelopment();
 
 		var model = exception.ToExceptionModel(httpContext.Response.StatusCode, isDev);
-		var policy = await this.GetCurrentAuthorizationPolicy(httpContext);
+		var policy = this._policyProvider is null
+			? null
+			: await GetCurrentAuthorizationPolicy(this._policyProvider, httpContext);
 
 		//
 		// Handle Unauthenticated directly...
@@ -137,11 +141,9 @@ public sealed class GlobalUnhandledExceptionHandler(
 		return false;
 	}
 
-	private async Task<AuthorizationPolicy?> GetCurrentAuthorizationPolicy(HttpContext context) {
-
-		if (policyProvider is null) {
-			return null;
-		}
+	private static async Task<AuthorizationPolicy?> GetCurrentAuthorizationPolicy(
+		IAuthorizationPolicyProvider policyProvider,
+		HttpContext context) {
 
 		// Try to get endpoint first
 		var endpoint = context.GetEndpoint() ??
