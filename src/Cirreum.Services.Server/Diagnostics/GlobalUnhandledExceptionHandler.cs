@@ -35,7 +35,9 @@ using System.Threading.Tasks;
 /// and detailed error information that respects the current environment (development/production).
 /// </para>
 /// </remarks>
-public sealed class GlobalUnhandledExceptionHandler(IAuthorizationPolicyProvider policyProvider) : IExceptionHandler {
+public sealed class GlobalUnhandledExceptionHandler(
+	IAuthorizationPolicyProvider? policyProvider
+) : IExceptionHandler {
 
 	private static readonly MediaTypeHeaderValue _jsonMediaType = new("application/json");
 	private static readonly MediaTypeHeaderValue _problemDetailsJsonMediaType = new("application/problem+json");
@@ -136,6 +138,10 @@ public sealed class GlobalUnhandledExceptionHandler(IAuthorizationPolicyProvider
 	}
 
 	private async Task<AuthorizationPolicy?> GetCurrentAuthorizationPolicy(HttpContext context) {
+
+		if (policyProvider is null) {
+			return null;
+		}
 
 		// Try to get endpoint first
 		var endpoint = context.GetEndpoint() ??
