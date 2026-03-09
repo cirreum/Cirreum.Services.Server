@@ -6,7 +6,6 @@ using Cirreum.Diagnostics;
 using Cirreum.Health;
 using Cirreum.Messaging;
 using Cirreum.Security;
-using Humanizer;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
