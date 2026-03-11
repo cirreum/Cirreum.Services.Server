@@ -17,6 +17,8 @@ public abstract class ServerUserBase : UserStateBase {
 
 internal sealed class ServerUser : ServerUserBase {
 
+	public override bool IsReady { get; } = true;
+
 	internal void SetAuthenticatedPrincipal(ClaimsPrincipal principal, string appName) {
 		this.AppName = appName;
 
