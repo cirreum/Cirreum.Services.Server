@@ -17,7 +17,7 @@ public abstract class ServerUserBase : UserStateBase {
 
 internal sealed class ServerUser : ServerUserBase {
 
-	public override bool IsAuthenticationComplete => true;
+	public override bool IsAuthenticationComplete { get; } = true;
 
 	internal void SetAuthenticatedPrincipal(ClaimsPrincipal principal, string appName) {
 
