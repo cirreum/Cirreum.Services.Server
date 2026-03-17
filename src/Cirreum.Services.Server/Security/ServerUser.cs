@@ -19,7 +19,7 @@ internal sealed class ServerUser : ServerUserBase {
 
 	public override bool IsAuthenticationComplete { get; } = true;
 
-	internal void SetAuthenticatedPrincipal(ClaimsPrincipal principal, string appName) {
+	internal void SetAuthenticatedPrincipal(ClaimsPrincipal principal, string appName, bool isDevelopment) {
 
 		this.AppName = appName;
 
@@ -37,9 +37,14 @@ internal sealed class ServerUser : ServerUserBase {
 		}
 
 		this._profile = new UserProfile(this._principal, TimeZoneInfo.Local.Id);
+
+		ClaimsUserProfileEnricher.EnrichProfile(this._profile, claimsIdentity, captureUnknownClaims: isDevelopment);
+		this.EnrichmentComplete();
+
 		if (!this.SessionStartTime.HasValue) {
 			this.StartSession();
 		}
+
 	}
 
 	internal void SetAnonymous() {

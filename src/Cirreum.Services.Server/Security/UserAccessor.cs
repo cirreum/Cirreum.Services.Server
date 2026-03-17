@@ -1,13 +1,16 @@
 ﻿namespace Cirreum.Security;
 
 using Cirreum.RemoteServices;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using System.Security.Claims;
 
 /// <summary>
 /// Default implementation of <see cref="IUserStateAccessor"/>
 /// </summary>
 sealed class UserAccessor(
-	IHttpContextAccessor httpContextAccessor
+	IHttpContextAccessor httpContextAccessor,
+	IWebHostEnvironment webHostEnvironment
 ) : IUserStateAccessor {
 
 	private const string UserContextKey = "__User_Context_Key";
@@ -47,7 +50,7 @@ sealed class UserAccessor(
 			AddAppNameToClaim(identity, appName);
 		}
 		user = new ServerUser();
-		user.SetAuthenticatedPrincipal(principal, appName ?? "");
+		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
 		context.Items[UserContextKey] = user;
 		return new ValueTask<IUserState>(user);
 
