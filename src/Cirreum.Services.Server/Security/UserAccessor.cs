@@ -1,7 +1,8 @@
-﻿namespace Cirreum.Security;
+namespace Cirreum.Security;
 
 using Cirreum.RemoteServices;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Security.Claims;
 
@@ -10,10 +11,11 @@ using System.Security.Claims;
 /// </summary>
 sealed class UserAccessor(
 	IHttpContextAccessor httpContextAccessor,
-	IWebHostEnvironment webHostEnvironment
+	IWebHostEnvironment webHostEnvironment,
+	IServiceProvider serviceProvider
 ) : IUserStateAccessor {
 
-	private const string UserContextKey = "__User_Context_Key";
+	private const string UserContextKey = "__Cirreum_User_Context_Key";
 	private static readonly IUserState AnonymousUserInstance = new ServerUser();
 	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
 		new ValueTask<IUserState>(AnonymousUserInstance);
@@ -51,8 +53,38 @@ sealed class UserAccessor(
 		}
 		user = new ServerUser();
 		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
+
+		// Resolve the application user — check cache first, then fall back to resolver
+		if (context.Items.TryGetValue(IApplicationUserResolver.CacheKey, out var cached)
+			&& cached is IApplicationUser cachedAppUser) {
+			user.SetResolvedApplicationUser(cachedAppUser);
+			context.Items[UserContextKey] = user;
+			return new ValueTask<IUserState>(user);
+		}
+
+		var resolver = serviceProvider.GetService<IApplicationUserResolver>();
+		if (resolver is not null) {
+			return ResolveApplicationUserAsync(user, resolver, context);
+		}
+
 		context.Items[UserContextKey] = user;
 		return new ValueTask<IUserState>(user);
+
+	}
+
+	private static async ValueTask<IUserState> ResolveApplicationUserAsync(
+		ServerUser user,
+		IApplicationUserResolver resolver,
+		HttpContext context) {
+
+		var appUser = await resolver.ResolveAsync(user.Id);
+		if (appUser is not null) {
+			user.SetResolvedApplicationUser(appUser);
+			context.Items[IApplicationUserResolver.CacheKey] = appUser;
+		}
+
+		context.Items[UserContextKey] = user;
+		return user;
 
 	}
 

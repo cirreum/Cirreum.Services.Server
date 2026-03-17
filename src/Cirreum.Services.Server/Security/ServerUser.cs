@@ -47,6 +47,10 @@ internal sealed class ServerUser : ServerUserBase {
 
 	}
 
+	internal void SetResolvedApplicationUser(IApplicationUser applicationUser) {
+		this.SetApplicationUser(applicationUser);
+	}
+
 	internal void SetAnonymous() {
 		this._isAuthenticated = false;
 		this._principal = AnonymousUser.Shared;
