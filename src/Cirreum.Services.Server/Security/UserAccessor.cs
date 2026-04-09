@@ -15,7 +15,7 @@ sealed class UserAccessor(
 	IServiceProvider serviceProvider
 ) : IUserStateAccessor {
 
-	private const string UserContextKey = "__Cirreum_User_Context_Key";
+	private const string UserContextKey = "__Cirreum_Context_UserState";
 	private static readonly IUserState AnonymousUserInstance = new ServerUser();
 	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
 		new ValueTask<IUserState>(AnonymousUserInstance);
@@ -42,48 +42,48 @@ sealed class UserAccessor(
 			return AnonymousUserValueTaskInstance;
 		}
 
+		// Create and enrich a new ServerUser
+		// ----------------------------------
+
+		return this.CreateUserAsync(context, principal);
+
+	}
+
+	private async ValueTask<IUserState> CreateUserAsync(HttpContext context, ClaimsPrincipal principal) {
+
+		// Enrichment order matters — each step may depend on the previous:
+		//   1. Claims enrichment  — adds app-name claims to the principal
+		//   2. SetAuthenticatedPrincipal — builds the UserProfile from enriched claims
+		//   3. ApplicationUser   — resolves the domain user (may use Id from step 2)
+		//   4. AccessScope       — resolves Global/Tenant (may inspect ApplicationUser from step 3)
+
+		// 1. Pre-enrich the ClaimsPrincipal with app name from header if present
 		string? appName = context.Request.Headers[RemoteIdentityConstants.AppNameHeader];
 		if (!string.IsNullOrWhiteSpace(appName) &&
 			principal.Identity is ClaimsIdentity identity) {
 			var idName = ClaimsHelper.ResolveName(identity);
 			if (string.IsNullOrWhiteSpace(idName)) {
+				// This is for M2M scenarios where the identity may not have a
+				// meaningful Name claim, so we use the app name as the Name
+				// claim for easier identification in logs and diagnostics
 				AddAppNameAsNameClaim(identity, appName);
 			}
 			AddAppNameToClaim(identity, appName);
 		}
-		user = new ServerUser();
+
+		// 2. Create a new ServerUser and set the authenticated principal
+		var user = new ServerUser();
 		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
 
-		// Resolve the application user — check cache first, then fall back to resolver
-		if (context.Items.TryGetValue(IApplicationUserResolver.CacheKey, out var cached)
-			&& cached is IApplicationUser cachedAppUser) {
-			user.SetResolvedApplicationUser(cachedAppUser);
-			context.Items[UserContextKey] = user;
-			return new ValueTask<IUserState>(user);
-		}
+		// 3. Application user — cache hit (from claims transformer) or live resolve
+		await this.ResolveApplicationUserAsync(user, context);
 
-		var resolver = serviceProvider.GetService<IApplicationUserResolver>();
-		if (resolver is not null) {
-			return ResolveApplicationUserAsync(user, resolver, context);
-		}
+		// 4. Access scope — Global (operator IdP) vs Tenant (customer IdP)
+		ResolveAccessScope(user, context);
 
+		// Cache the fully-built user for the remainder of this request
 		context.Items[UserContextKey] = user;
-		return new ValueTask<IUserState>(user);
 
-	}
-
-	private static async ValueTask<IUserState> ResolveApplicationUserAsync(
-		ServerUser user,
-		IApplicationUserResolver resolver,
-		HttpContext context) {
-
-		var appUser = await resolver.ResolveAsync(user.Id);
-		if (appUser is not null) {
-			user.SetResolvedApplicationUser(appUser);
-			context.Items[IApplicationUserResolver.CacheKey] = appUser;
-		}
-
-		context.Items[UserContextKey] = user;
 		return user;
 
 	}
@@ -114,7 +114,6 @@ sealed class UserAccessor(
 		identity.AddClaim(new Claim(ClaimTypes.Name, appName));
 
 	}
-
 	private static void AddAppNameToClaim(ClaimsIdentity identity, string appName) {
 
 		// Remove existing app name claim if present
@@ -125,6 +124,34 @@ sealed class UserAccessor(
 
 		// Add the new app name claim
 		identity.AddClaim(new Claim(RemoteIdentityConstants.AppNameClaimType, appName));
+
+	}
+	private static void ResolveAccessScope(ServerUser user, HttpContext context) {
+		var resolver = context.RequestServices.GetService<IAccessScopeResolver>();
+		if (resolver is null) {
+			user.SetResolvedAccessScope(AccessScope.None);
+			return;
+		}
+		var scheme = user.Identity?.AuthenticationType;
+		var accessScope = resolver.Resolve(user, scheme);
+		user.SetResolvedAccessScope(accessScope);
+	}
+	private async ValueTask ResolveApplicationUserAsync(ServerUser user, HttpContext context) {
+
+		if (context.Items.TryGetValue(IApplicationUserResolver.CacheKey, out var cached)
+			&& cached is IApplicationUser cachedAppUser) {
+			user.SetResolvedApplicationUser(cachedAppUser);
+			return;
+		}
+
+		var resolver = serviceProvider.GetService<IApplicationUserResolver>();
+		if (resolver is not null) {
+			var appUser = await resolver.ResolveAsync(user.Id);
+			if (appUser is not null) {
+				user.SetResolvedApplicationUser(appUser);
+				context.Items[IApplicationUserResolver.CacheKey] = appUser;
+			}
+		}
 
 	}
 

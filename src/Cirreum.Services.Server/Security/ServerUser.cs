@@ -51,6 +51,10 @@ internal sealed class ServerUser : ServerUserBase {
 		this.SetApplicationUser(applicationUser);
 	}
 
+	internal void SetResolvedAccessScope(AccessScope scope) {
+		this.SetAccessScope(scope);
+	}
+
 	internal void SetAnonymous() {
 		this._isAuthenticated = false;
 		this._principal = AnonymousUser.Shared;
