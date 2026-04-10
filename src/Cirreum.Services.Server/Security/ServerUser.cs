@@ -51,8 +51,8 @@ internal sealed class ServerUser : ServerUserBase {
 		this.SetApplicationUser(applicationUser);
 	}
 
-	internal void SetResolvedAccessScope(AccessScope scope) {
-		this.SetAccessScope(scope);
+	internal void SetResolvedAuthenticationBoundary(AuthenticationBoundary boundary) {
+		this.SetAuthenticationBoundary(boundary);
 	}
 
 	internal void SetAnonymous() {

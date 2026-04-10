@@ -54,8 +54,8 @@ sealed class UserAccessor(
 		// Enrichment order matters — each step may depend on the previous:
 		//   1. Claims enrichment  — adds app-name claims to the principal
 		//   2. SetAuthenticatedPrincipal — builds the UserProfile from enriched claims
-		//   3. ApplicationUser   — resolves the domain user (may use Id from step 2)
-		//   4. AccessScope       — resolves Global/Tenant (may inspect ApplicationUser from step 3)
+		//   3. ApplicationUser — resolves the domain user (may use Id from step 2)
+		//   4. AuthenticationBoundary — resolves Global/Tenant (may inspect ApplicationUser from step 3)
 
 		// 1. Pre-enrich the ClaimsPrincipal with app name from header if present
 		string? appName = context.Request.Headers[RemoteIdentityConstants.AppNameHeader];
@@ -78,8 +78,8 @@ sealed class UserAccessor(
 		// 3. Application user — cache hit (from claims transformer) or live resolve
 		await this.ResolveApplicationUserAsync(user, context);
 
-		// 4. Access scope — Global (operator IdP) vs Tenant (customer IdP)
-		ResolveAccessScope(user, context);
+		// 4. Authentication boundary — Global (operator IdP) vs Tenant (customer IdP)
+		ResolveAuthenticationBoundary(user, context);
 
 		// Cache the fully-built user for the remainder of this request
 		context.Items[UserContextKey] = user;
@@ -126,16 +126,6 @@ sealed class UserAccessor(
 		identity.AddClaim(new Claim(RemoteIdentityConstants.AppNameClaimType, appName));
 
 	}
-	private static void ResolveAccessScope(ServerUser user, HttpContext context) {
-		var resolver = context.RequestServices.GetService<IAccessScopeResolver>();
-		if (resolver is null) {
-			user.SetResolvedAccessScope(AccessScope.None);
-			return;
-		}
-		var scheme = user.Identity?.AuthenticationType;
-		var accessScope = resolver.Resolve(user, scheme);
-		user.SetResolvedAccessScope(accessScope);
-	}
 	private async ValueTask ResolveApplicationUserAsync(ServerUser user, HttpContext context) {
 
 		if (context.Items.TryGetValue(IApplicationUserResolver.CacheKey, out var cached)
@@ -153,6 +143,16 @@ sealed class UserAccessor(
 			}
 		}
 
+	}
+	private static void ResolveAuthenticationBoundary(ServerUser user, HttpContext context) {
+		var resolver = context.RequestServices.GetService<IAuthenticationBoundaryResolver>();
+		if (resolver is null) {
+			user.SetResolvedAuthenticationBoundary(AuthenticationBoundary.None);
+			return;
+		}
+		var scheme = user.Identity?.AuthenticationType;
+		var boundary = resolver.Resolve(user, scheme);
+		user.SetResolvedAuthenticationBoundary(boundary);
 	}
 
 }
