@@ -150,7 +150,14 @@ sealed class UserAccessor(
 			user.SetResolvedAuthenticationBoundary(AuthenticationBoundary.None);
 			return;
 		}
-		var scheme = user.Identity?.AuthenticationType;
+
+		// Prefer the actual authentication scheme from the HTTP context over
+		// ClaimsIdentity.AuthenticationType, which JwtBearerHandler may set to
+		// "Bearer" or "AuthenticationTypes.Federation" instead of the scheme name.
+		var scheme = context.Features.Get<Microsoft.AspNetCore.Authentication.IAuthenticateResultFeature>()
+			?.AuthenticateResult?.Ticket?.AuthenticationScheme
+			?? user.Identity?.AuthenticationType;
+
 		var boundary = resolver.Resolve(user, scheme);
 		user.SetResolvedAuthenticationBoundary(boundary);
 	}
