@@ -47,7 +47,7 @@ internal sealed class ServerUser : ServerUserBase {
 
 	}
 
-	internal void SetResolvedApplicationUser(IApplicationUser applicationUser) {
+	internal void SetResolvedApplicationUser(IApplicationUser? applicationUser) {
 		this.SetApplicationUser(applicationUser);
 	}
 

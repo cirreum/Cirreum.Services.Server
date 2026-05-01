@@ -150,6 +150,7 @@ sealed class UserAccessor(
 		// back to the null-scheme default. No matching resolver = correct null outcome.
 		var resolvers = serviceProvider.GetServices<IApplicationUserResolver>();
 		if (!resolvers.Any()) {
+			user.SetResolvedApplicationUser(null);
 			return;
 		}
 
@@ -164,8 +165,11 @@ sealed class UserAccessor(
 			if (appUser is not null) {
 				user.SetResolvedApplicationUser(appUser);
 				context.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
+				return;
 			}
 		}
+
+		user.SetResolvedApplicationUser(null);
 
 	}
 	private static void ResolveAuthenticationBoundary(ServerUser user, HttpContext context) {
