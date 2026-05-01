@@ -128,18 +128,42 @@ sealed class UserAccessor(
 	}
 	private async ValueTask ResolveApplicationUserAsync(ServerUser user, HttpContext context) {
 
-		if (context.Items.TryGetValue(IApplicationUserResolver.CacheKey, out var cached)
+		// Cache hit: ApplicationUserRoleResolverAdapter (run during claims transformation,
+		// inside AuthenticateAsync) already resolved the application user and stashed it
+		// here. Steady-state path for tenant-track requests.
+		if (context.Items.TryGetValue(AuthenticationContextKeys.ApplicationUserCache, out var cached)
 			&& cached is IApplicationUser cachedAppUser) {
 			user.SetResolvedApplicationUser(cachedAppUser);
 			return;
 		}
 
-		var resolver = serviceProvider.GetService<IApplicationUserResolver>();
+		// Cache-miss fallback. Legitimately fires when:
+		//   - Operator/machine-track requests — the transformer short-circuited via
+		//     RolesAlreadyPresent (token already had roles), so the resolver was never
+		//     invoked. No matching resolver should be registered for these schemes.
+		//   - Tenant-track edge cases — transformer skipped via NoClaimsIdentity or
+		//     NoUserIdentifier (no resolvable user-id claim).
+		//   - Non-HTTP code paths that synthesize HttpContext without running claims
+		//     transformation (test harnesses, internal dispatch).
+		//
+		// Dispatch to the resolver matching the request's authenticated scheme; falls
+		// back to the null-scheme default. No matching resolver = correct null outcome.
+		var resolvers = serviceProvider.GetServices<IApplicationUserResolver>();
+		if (!resolvers.Any()) {
+			return;
+		}
+
+		var scheme = context.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
+				  ?? user.Identity?.AuthenticationType;
+
+		var resolver = resolvers.FirstOrDefault(r => r.Scheme == scheme)
+					?? resolvers.FirstOrDefault(r => r.Scheme is null);
+
 		if (resolver is not null) {
 			var appUser = await resolver.ResolveAsync(user.Id);
 			if (appUser is not null) {
 				user.SetResolvedApplicationUser(appUser);
-				context.Items[IApplicationUserResolver.CacheKey] = appUser;
+				context.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 			}
 		}
 
@@ -151,7 +175,7 @@ sealed class UserAccessor(
 			return;
 		}
 
-		var scheme = context.Items[IAuthenticationBoundaryResolver.ResolvedSchemeKey] as string
+		var scheme = context.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
 					  ?? user.Identity?.AuthenticationType;
 
 		var boundary = resolver.Resolve(user, scheme);
