@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-01
+
 Per-scheme application user resolution support, paired with the `Cirreum.Core
 5.0.0` rework. `UserAccessor` now dispatches `IApplicationUserResolver` by the
 request's authenticated scheme on the cache-miss fallback path, enabling
