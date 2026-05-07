@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`InvocationContextHttpMiddleware`** — per-request middleware that materializes an `IInvocationContext` for the active `HttpContext` and publishes it through `IInvocationContextAccessor`. Snapshots `User` (immutable for the invocation), aliases `HttpContext.Items` (same dictionary reference — no copy), and exposes `RequestServices` / `RequestAborted` through the seam.
+- **`UseInvocationContext()`** extension on `IApplicationBuilder` — registers the bridge middleware. Intended placement: after `UseAuthentication` / `UseAuthorization`, before endpoint execution. `Cirreum.Runtime.Server` will pick this up in its `Build()` composition (release #7 in the [Invocation family rollout](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/InvocationContext/03-MIGRATION.md)).
+- **`IInvocationContextAccessor`** registered in `AddCoreServices()` (singleton, `AsyncLocal`-backed; matches `IHttpContextAccessor` convention).
+
+### Changed
+
+- **`UserStateAccessor` (renamed from `UserAccessor`)** now reads identity, items, services, and authenticated scheme through `IInvocationContextAccessor.Current` instead of `IHttpContextAccessor.HttpContext` directly. The four-step enrichment pipeline (claims pre-enrich → `SetAuthenticatedPrincipal` → `ResolveApplicationUserAsync` → `ResolveAuthenticationBoundary`) is unchanged in shape and behavior; only the seam it consumes is refactored. Per-scheme `IApplicationUserResolver` dispatch and all `AuthenticationContextKeys` slot reads/writes continue to work transparently because `IInvocationContext.Items` IS `HttpContext.Items` (aliased, not copied) for HTTP-sourced invocations. The class is `internal sealed`; the rename has no public API impact.
+- App-name header (`RemoteIdentityConstants.AppNameHeader`) is now snapshotted by `HttpInvocationContext` at middleware entry and exposed through an internal seam consumed by `UserStateAccessor` via feature-check cast. Eliminates the mid-pipeline `IHttpContextAccessor` re-read. Non-HTTP invocation sources don't satisfy the cast — result is `null`, which is correct since those sources have no HTTP headers.
+
+### Migration from 1.1.0
+
+For framework-internal consumers: no action. The `IUserStateAccessor` contract is unchanged and the enrichment pipeline produces the same `IUserState` for the same input. The implementation type was renamed from `UserAccessor` to `UserStateAccessor` for consistency with the interface name; this is an `internal sealed` class so the rename has no public API impact.
+
+For host composition: apps using `Cirreum.Runtime.Server`'s `Build()` will pick up the new middleware automatically once Runtime.Server ships its corresponding update. Apps composing the pipeline manually need to add `app.UseInvocationContext()` after `UseAuthorization()`.
+
 ## [1.1.0] - 2026-05-01
 
 Per-scheme application user resolution support, paired with the `Cirreum.Core

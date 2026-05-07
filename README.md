@@ -14,6 +14,7 @@
 
 ## Features
 
+- **Invocation Context Bridge**: HTTP→`IInvocationContext` middleware that publishes a unified, transport-agnostic per-invocation seam consumed by framework code (CQRS handlers, authorization, audit, repositories) — see [ADR-0002](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/adr/0002-unified-invocation-context.md)
 - **Global Exception Handling**: RFC 7807 compliant Problem Details with environment-aware responses
 - **Hybrid Caching**: Modern caching infrastructure with tag-based invalidation and smart expiration policies  
 - **Security Services**: Claims-based user context management and authentication integration
@@ -45,13 +46,32 @@ builder.Services.AddGlobalExceptionHandling();
 builder.Services.AddDefaultHealthChecks();
 ```
 
+Wire the invocation-context bridge into your HTTP pipeline. **Placement matters** — register *after* authentication and authorization so the snapshotted `IInvocationContext.User` reflects the fully-resolved authenticated principal:
+
+```csharp
+using Microsoft.AspNetCore.Builder;
+
+app.UseExceptionHandler();
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseInvocationContext();   // ← here: AuthN/AuthZ resolved, ready for endpoint
+app.MapEndpoints();
+```
+
+> Apps using `Cirreum.Runtime.Server`'s `Build()` composition pick up `UseInvocationContext()` automatically — no manual wiring required.
+
 ## Service Registration
 
 The library provides extension methods for clean service registration:
 
-- `AddCoreServices()` - Registers file system, datetime, security, and caching services
+- `AddCoreServices()` - Registers `IInvocationContextAccessor` (singleton, AsyncLocal-backed), file system, datetime, security, and caching services
 - `AddGlobalExceptionHandling()` - Configures RFC 7807 exception handling pipeline
 - `AddDefaultHealthChecks()` - Sets up health check infrastructure with startup monitoring
+
+## Pipeline Extensions
+
+- `UseInvocationContext()` - Publishes an `IInvocationContext` for every HTTP request through `IInvocationContextAccessor`. Snapshots `User` (immutable for the invocation), aliases `HttpContext.Items` (same dictionary reference — existing `AuthenticationContextKeys` slots flow through transparently), and exposes `RequestServices` / `RequestAborted` through the unified seam. Register late — after `UseAuthentication()` / `UseAuthorization()`, before endpoint execution.
 
 ## Architecture
 

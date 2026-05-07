@@ -4,13 +4,20 @@ using Cirreum;
 using Cirreum.Clock;
 using Cirreum.Diagnostics;
 using Cirreum.Health;
+using Cirreum.Http.Invocation;
+using Cirreum.Invocation;
 using Cirreum.Messaging;
 using Cirreum.Security;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 public static class HostingExtensions {
+
+
+	// Services
+	// ---------------------------------------------------------
 
 	/// <summary>
 	/// Add the single and global <see cref="GlobalUnhandledExceptionHandler"/>.
@@ -44,11 +51,13 @@ public static class HostingExtensions {
 	public static IServiceCollection AddCoreServices(this IServiceCollection services) {
 
 		//
-		// HttpContextAccessor & IUserContextAccessor
+		// HttpContextAccessor, IInvocationContextAccessor & IUserContextAccessor
 		//
 		services
 			.AddHttpContextAccessor()
-			.AddScoped<IUserStateAccessor, UserAccessor>();
+			.TryAddSingleton<IInvocationContextAccessor, InvocationContextAccessor>();
+		services
+			.AddScoped<IUserStateAccessor, UserStateAccessor>();
 
 		//
 		// Default IEnvironment implementation
@@ -120,6 +129,23 @@ public static class HostingExtensions {
 			.AddCheck<IStartedAndAliveHealthCheck>(
 				StartupHealthCheck.Name.Kebaberize(),
 				tags: [StartupHealthCheck.Tag]);
+
+	}
+
+
+	// Application
+	// ---------------------------------------------------------
+
+	/// <summary>
+	/// Adds the HTTP→<c>IInvocationContext</c> bridge middleware. Register late —
+	/// after <c>UseAuthentication</c> / <c>UseAuthorization</c>, before endpoint
+	/// execution — so the snapshotted invocation reflects the fully-resolved
+	/// authenticated principal.
+	/// </summary>
+	public static IApplicationBuilder UseInvocationContext(this IApplicationBuilder app) {
+
+		ArgumentNullException.ThrowIfNull(app);
+		return app.UseMiddleware<InvocationContextHttpMiddleware>();
 
 	}
 

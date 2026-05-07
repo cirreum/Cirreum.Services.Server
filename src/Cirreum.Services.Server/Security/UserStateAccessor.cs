@@ -1,5 +1,7 @@
 namespace Cirreum.Security;
 
+using Cirreum.Http.Invocation;
+using Cirreum.Invocation;
 using Cirreum.RemoteServices;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,10 +11,9 @@ using System.Security.Claims;
 /// <summary>
 /// Default implementation of <see cref="IUserStateAccessor"/>
 /// </summary>
-sealed class UserAccessor(
-	IHttpContextAccessor httpContextAccessor,
-	IWebHostEnvironment webHostEnvironment,
-	IServiceProvider serviceProvider
+sealed class UserStateAccessor(
+	IInvocationContextAccessor invocationAccessor,
+	IWebHostEnvironment webHostEnvironment
 ) : IUserStateAccessor {
 
 	private const string UserContextKey = "__Cirreum_Context_UserState";
@@ -20,36 +21,33 @@ sealed class UserAccessor(
 	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
 		new ValueTask<IUserState>(AnonymousUserInstance);
 
-	private readonly IHttpContextAccessor _httpContextAccessor =
-		httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
-
 	public ValueTask<IUserState> GetUser() {
 
-		var context = this._httpContextAccessor.HttpContext;
-		if (context == null) {
+		var invocation = invocationAccessor.Current;
+		if (invocation == null) {
 			return AnonymousUserValueTaskInstance;
 		}
 
-		// Check if we already have a UserState for this request
-		if (context.Items.TryGetValue(UserContextKey, out var existingUser)
+		// Check if we already have a UserState for this invocation
+		if (invocation.Items.TryGetValue(UserContextKey, out var existingUser)
 			&& existingUser is ServerUser user) {
 			return new ValueTask<IUserState>(user);
 		}
 
-		var principal = context.User;
+		var principal = invocation.User;
 		if (principal?.Identity == null || !principal.Identity.IsAuthenticated) {
-			context.Items[UserContextKey] = AnonymousUserInstance;
+			invocation.Items[UserContextKey] = AnonymousUserInstance;
 			return AnonymousUserValueTaskInstance;
 		}
 
 		// Create and enrich a new ServerUser
 		// ----------------------------------
 
-		return this.CreateUserAsync(context, principal);
+		return this.CreateUserAsync(invocation, principal);
 
 	}
 
-	private async ValueTask<IUserState> CreateUserAsync(HttpContext context, ClaimsPrincipal principal) {
+	private async ValueTask<IUserState> CreateUserAsync(IInvocationContext invocation, ClaimsPrincipal principal) {
 
 		// Enrichment order matters — each step may depend on the previous:
 		//   1. Claims enrichment  — adds app-name claims to the principal
@@ -58,7 +56,7 @@ sealed class UserAccessor(
 		//   4. AuthenticationBoundary — resolves Global/Tenant (may inspect ApplicationUser from step 3)
 
 		// 1. Pre-enrich the ClaimsPrincipal with app name from header if present
-		string? appName = context.Request.Headers[RemoteIdentityConstants.AppNameHeader];
+		var appName = (invocation as HttpInvocationContext)?.AppName;
 		if (!string.IsNullOrWhiteSpace(appName) &&
 			principal.Identity is ClaimsIdentity identity) {
 			var idName = ClaimsHelper.ResolveName(identity);
@@ -76,13 +74,13 @@ sealed class UserAccessor(
 		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
 
 		// 3. Application user — cache hit (from claims transformer) or live resolve
-		await this.ResolveApplicationUserAsync(user, context);
+		await ResolveApplicationUserAsync(user, invocation);
 
 		// 4. Authentication boundary — Global (operator IdP) vs Tenant (customer IdP)
-		ResolveAuthenticationBoundary(user, context);
+		ResolveAuthenticationBoundary(user, invocation);
 
-		// Cache the fully-built user for the remainder of this request
-		context.Items[UserContextKey] = user;
+		// Cache the fully-built user for the remainder of this invocation
+		invocation.Items[UserContextKey] = user;
 
 		return user;
 
@@ -126,12 +124,12 @@ sealed class UserAccessor(
 		identity.AddClaim(new Claim(RemoteIdentityConstants.AppNameClaimType, appName));
 
 	}
-	private async ValueTask ResolveApplicationUserAsync(ServerUser user, HttpContext context) {
+	private static async ValueTask ResolveApplicationUserAsync(ServerUser user, IInvocationContext invocation) {
 
 		// Cache hit: ApplicationUserRoleResolverAdapter (run during claims transformation,
 		// inside AuthenticateAsync) already resolved the application user and stashed it
 		// here. Steady-state path for tenant-track requests.
-		if (context.Items.TryGetValue(AuthenticationContextKeys.ApplicationUserCache, out var cached)
+		if (invocation.Items.TryGetValue(AuthenticationContextKeys.ApplicationUserCache, out var cached)
 			&& cached is IApplicationUser cachedAppUser) {
 			user.SetResolvedApplicationUser(cachedAppUser);
 			return;
@@ -148,13 +146,13 @@ sealed class UserAccessor(
 		//
 		// Dispatch to the resolver matching the request's authenticated scheme; falls
 		// back to the null-scheme default. No matching resolver = correct null outcome.
-		var resolvers = serviceProvider.GetServices<IApplicationUserResolver>();
+		var resolvers = invocation.Services.GetServices<IApplicationUserResolver>();
 		if (!resolvers.Any()) {
 			user.SetResolvedApplicationUser(null);
 			return;
 		}
 
-		var scheme = context.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
+		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
 				  ?? user.Identity?.AuthenticationType;
 
 		var resolver = resolvers.FirstOrDefault(r => r.Scheme == scheme)
@@ -164,7 +162,7 @@ sealed class UserAccessor(
 			var appUser = await resolver.ResolveAsync(user.Id);
 			if (appUser is not null) {
 				user.SetResolvedApplicationUser(appUser);
-				context.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
+				invocation.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 				return;
 			}
 		}
@@ -172,14 +170,14 @@ sealed class UserAccessor(
 		user.SetResolvedApplicationUser(null);
 
 	}
-	private static void ResolveAuthenticationBoundary(ServerUser user, HttpContext context) {
-		var resolver = context.RequestServices.GetService<IAuthenticationBoundaryResolver>();
+	private static void ResolveAuthenticationBoundary(ServerUser user, IInvocationContext invocation) {
+		var resolver = invocation.Services.GetService<IAuthenticationBoundaryResolver>();
 		if (resolver is null) {
 			user.SetResolvedAuthenticationBoundary(AuthenticationBoundary.None);
 			return;
 		}
 
-		var scheme = context.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
+		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
 					  ?? user.Identity?.AuthenticationType;
 
 		var boundary = resolver.Resolve(user, scheme);
