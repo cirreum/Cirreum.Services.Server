@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-07
+
 ### Added
 
 - **`InvocationContextHttpMiddleware`** — per-request middleware that materializes an `IInvocationContext` for the active `HttpContext` and publishes it through `IInvocationContextAccessor`. Snapshots `User` (immutable for the invocation), aliases `HttpContext.Items` (same dictionary reference — no copy), and exposes `RequestServices` / `RequestAborted` through the seam.
