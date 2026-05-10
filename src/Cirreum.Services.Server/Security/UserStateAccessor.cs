@@ -163,6 +163,18 @@ sealed class UserStateAccessor(
 			if (appUser is not null) {
 				user.SetResolvedApplicationUser(appUser);
 				invocation.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
+				// Future-proof for long-lived sources: when a null-scheme resolver eventually
+				// fires for header-auth or M2M-on-behalf-of-human (the AI/LLM Piece 2 seam),
+				// propagate the resolved user to the connection-lifetime bag so subsequent
+				// invocations on the same connection seed correctly via the L3 adapter's
+				// per-invocation Items copy. Today this line is dead-code for all current
+				// resolver registrations (audience-auth pre-populates the cache at upgrade;
+				// header-auth has no matching resolver so this branch never fires) — the
+				// branch exists to prevent IdP hammering the day a null-scheme resolver
+				// registers and the lazy-resolve path goes live.
+				if (invocation.Connection is { } connection) {
+					connection.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
+				}
 				return;
 			}
 		}
