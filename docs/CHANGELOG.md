@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-05-10
+
 ### Fixed
 
 - **`UserStateAccessor` now double-writes the resolved `IApplicationUser` to both per-invocation `Items` AND per-connection `Connection.Items`** when the lazy-resolve path fires (cache miss → `IApplicationUserResolver` returns a non-null user). Future-proofs the framework for the AI/LLM act-on-behalf-of seam (Piece 2): when a null-scheme `IApplicationUserResolver` eventually registers and the lazy-resolve path goes live for header-auth or M2M-on-behalf-of-human shapes on long-lived connections, the resolved user automatically propagates to the connection-lifetime bag so subsequent invocations on the same connection seed correctly via the L3 adapter's per-invocation `Items` copy (`Cirreum.Invocation.SignalR` + `Cirreum.Invocation.WebSockets` patches). Without this propagation, every per-Hub-method or per-WebSocket-message invocation would re-invoke the resolver and hammer the underlying lookup (DB, IdP). Today the line is dead-code for all current resolver registrations (audience-auth pre-populates the cache at upgrade via the claims transformer; header-auth has no matching resolver and short-circuits before the write). The branch exists to prevent the surprise the day the AI/LLM Piece 2 work introduces a null-scheme resolver. Read paths in `UserStateAccessor` and any other consumer remain unchanged — they continue to read `invocation.Items` only. The connection-bag awareness is contained to the writer, on this single lazy-resolve path. The `null`-coalescing `is { } connection` check ensures HTTP invocations (where `Connection` is null) skip the write transparently.
