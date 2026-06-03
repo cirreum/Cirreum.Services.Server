@@ -1,5 +1,7 @@
 namespace Cirreum.Security;
 
+using Cirreum.Authentication;
+using Cirreum.AuthenticationProvider.Security;
 using Cirreum.Http.Invocation;
 using Cirreum.Invocation;
 using Cirreum.RemoteServices;
@@ -21,7 +23,7 @@ sealed class UserStateAccessor(
 	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
 		new ValueTask<IUserState>(AnonymousUserInstance);
 
-	public ValueTask<IUserState> GetUser() {
+	public ValueTask<IUserState> GetUserState() {
 
 		var invocation = invocationAccessor.Current;
 		if (invocation == null) {
@@ -153,7 +155,7 @@ sealed class UserStateAccessor(
 		}
 
 		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
-				  ?? user.Identity?.AuthenticationType;
+				  ?? user.Principal.Identity?.AuthenticationType;
 
 		var resolver = resolvers.FirstOrDefault(r => r.Scheme == scheme)
 					?? resolvers.FirstOrDefault(r => r.Scheme is null);
@@ -166,7 +168,7 @@ sealed class UserStateAccessor(
 				// Future-proof for long-lived sources: when a null-scheme resolver eventually
 				// fires for header-auth or M2M-on-behalf-of-human (the AI/LLM Piece 2 seam),
 				// propagate the resolved user to the connection-lifetime bag so subsequent
-				// invocations on the same connection seed correctly via the L3 adapter's
+				// invocations on the same connection seed correctly via the source adapter's
 				// per-invocation Items copy. Today this line is dead-code for all current
 				// resolver registrations (audience-auth pre-populates the cache at upgrade;
 				// header-auth has no matching resolver so this branch never fires) — the
@@ -190,7 +192,7 @@ sealed class UserStateAccessor(
 		}
 
 		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
-					  ?? user.Identity?.AuthenticationType;
+					  ?? user.Principal.Identity?.AuthenticationType;
 
 		var boundary = resolver.Resolve(user, scheme);
 		user.SetResolvedAuthenticationBoundary(boundary);

@@ -14,7 +14,7 @@
 
 ## Features
 
-- **Invocation Context Bridge**: HTTP→`IInvocationContext` middleware that publishes a unified, transport-agnostic per-invocation seam consumed by framework code (CQRS handlers, authorization, audit, repositories) — see [ADR-0002](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/adr/0002-unified-invocation-context.md)
+- **Invocation Context Bridge**: HTTP→`IInvocationContext` middleware that publishes a unified, transport-agnostic per-invocation seam consumed by framework code (CQRS handlers, authorization, audit, repositories)
 - **Global Exception Handling**: RFC 7807 compliant Problem Details with environment-aware responses
 - **Hybrid Caching**: Modern caching infrastructure with tag-based invalidation and smart expiration policies  
 - **Security Services**: Claims-based user context management and authentication integration

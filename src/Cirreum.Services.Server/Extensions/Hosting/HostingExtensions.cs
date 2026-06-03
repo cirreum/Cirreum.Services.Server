@@ -6,7 +6,6 @@ using Cirreum.Diagnostics;
 using Cirreum.Health;
 using Cirreum.Http.Invocation;
 using Cirreum.Invocation;
-using Cirreum.Messaging;
 using Cirreum.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
@@ -60,12 +59,6 @@ public static class HostingExtensions {
 			.AddScoped<IUserStateAccessor, UserStateAccessor>();
 
 		//
-		// Default IEnvironment implementation
-		//
-		services
-			.TryAddSingleton<IEnvironment>(SystemEnvironment.Instance);
-
-		//
 		// DateTime/Clock
 		//
 		services
@@ -81,12 +74,6 @@ public static class HostingExtensions {
 			.AddTransient<ICsvFileBuilder, CsvFileBuilder>()
 			.AddTransient<ICsvFileReader, CsvFileReader>()
 			.AddTransient<IFileSystem, LocalFileSystem>();
-
-		//
-		// Distributed Messaging
-		//
-		services
-			.TryAddSingleton<IDistributedTransportPublisher, EmptyTransportPublisher>();
 
 		return services;
 

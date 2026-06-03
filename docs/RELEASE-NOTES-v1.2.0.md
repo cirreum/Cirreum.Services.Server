@@ -1,6 +1,6 @@
 # Cirreum.Services.Server 1.2.0 — HTTP→`IInvocationContext` bridge
 
-The seam that anchors [ADR-0002](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/adr/0002-unified-invocation-context.md) lights up for HTTP. This release adds the middleware that publishes `IInvocationContext` for every HTTP request and refactors `UserStateAccessor` to consume it through `IInvocationContextAccessor` instead of `IHttpContextAccessor` directly.
+The unified invocation seam lights up for HTTP. This release adds the middleware that publishes `IInvocationContext` for every HTTP request and refactors `UserStateAccessor` to consume it through `IInvocationContextAccessor` instead of `IHttpContextAccessor` directly.
 
 Strictly internal refactor at the framework level. Zero behavior change for existing apps. Zero public API removed.
 
@@ -8,7 +8,7 @@ Strictly internal refactor at the framework level. Zero behavior change for exis
 
 ## Why this release exists
 
-`Cirreum.InvocationProvider` 1.0.1 shipped the unified L2 inbound seam — `IInvocationContext`, `IInvocationContextAccessor`, the connection-family abstractions — but until something *populated* the seam, those types were just contracts. This release wires the framework's primary invocation source (HTTP) into the seam.
+`Cirreum.InvocationProvider` 1.0.1 shipped the unified inbound seam — `IInvocationContext`, `IInvocationContextAccessor`, the connection-family abstractions — but until something *populated* the seam, those types were just contracts. This release wires the framework's primary invocation source (HTTP) into the seam.
 
 Once landed, framework-internal code (`UserStateAccessor`, the conductor pipeline, authorizers, audit) reads identity through the unified seam. `IHttpContextAccessor` remains available for app code that needs HTTP-specific concerns (response headers, cookies) but no longer carries identity for the framework. When the SignalR / WebSocket / gRPC source adapters arrive in releases #11–#16, they populate the same seam — and the same `UserStateAccessor` works against them with no further changes.
 
@@ -109,7 +109,7 @@ Per-scheme `IApplicationUserResolver` dispatch (shipped 2026-05-01 in 1.1.0) kee
 
 ## Coordinated downstream work
 
-This release unblocks #7 in the [Invocation family rollout](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/InvocationContext/03-MIGRATION.md):
+This release unblocks the next steps in the Invocation family rollout:
 
 - `Cirreum.Runtime.Server` (next, minor) — `Build()` composition will call `app.UseInvocationContext()` after `UseAuthorization()`. Apps using Runtime.Server pick up the seam automatically on package update.
 
@@ -135,6 +135,4 @@ Then the Invocation family per-source packages (SignalR, WebSockets, gRPC) light
 ## See also
 
 - `CHANGELOG.md` — condensed change list for `1.2.0`.
-- [`Cirreum.InvocationProvider 1.0.1`](https://www.nuget.org/packages/Cirreum.InvocationProvider) — L2 abstractions this release populates.
-- [ADR-0002](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/adr/0002-unified-invocation-context.md) — the foundational design decision.
-- [Invocation family migration plan](https://github.com/cirreum/Cirreum.DevOps/blob/main/docs/InvocationContext/03-MIGRATION.md) — full rollout sequence.
+- [`Cirreum.InvocationProvider 1.0.1`](https://www.nuget.org/packages/Cirreum.InvocationProvider) — invocation abstractions this release populates.
