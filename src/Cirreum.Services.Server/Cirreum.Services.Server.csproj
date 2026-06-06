@@ -8,17 +8,15 @@
 
 	<ItemGroup>
 		<!--
-			Service library composing over the server spine. References the foundation directly:
-			Cirreum.Common carries the Invocation abstractions (IInvocationContext /
-			IInvocationConnection / IConnectionEstablishmentContributor) and Cirreum.Kernel
-			carries AuthenticationContextKeys + the auth events.
+			Service library composing over the server spine. Cirreum.Domain brings the
+			Contracts surface (the Invocation abstractions IInvocationContext /
+			IInvocationConnection / IConnectionEstablishmentContributor, FileSystem), Cirreum.Kernel
+			(AuthenticationContextKeys + auth events), Cirreum.Exceptions, and Cirreum.Result
+			transitively; Cirreum.AuthenticationProvider brings the authentication abstractions (+ Providers).
 		-->
-		<ProjectReference Include="..\..\..\..\Base\Cirreum.Kernel\src\Cirreum.Kernel\Cirreum.Kernel.csproj" />
-		<ProjectReference Include="..\..\..\..\Common\Cirreum.Common\src\Cirreum.Common\Cirreum.Common.csproj" />
-		<ProjectReference Include="..\..\..\..\Core\Cirreum.Shared\src\Cirreum.Shared\Cirreum.Shared.csproj" />
-		<ProjectReference Include="..\..\..\..\Core\Cirreum.AuthenticationProvider\src\Cirreum.AuthenticationProvider\Cirreum.AuthenticationProvider.csproj" />
+		<PackageReference Include="Cirreum.Domain" Version="1.1.1" />
+		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.0.0" />
 
-		<PackageReference Include="Cirreum.Exceptions" Version="1.0.4" />
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="Polly" Version="8.6.6" />
 		<PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
