@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-05
+
 ### Added
 
 - **ADR-0027 Phase B — connection registry + auth-event connection terminator.**
