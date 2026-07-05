@@ -14,8 +14,8 @@
 			(AuthenticationContextKeys + auth events), Cirreum.Exceptions, and Cirreum.Result
 			transitively; Cirreum.AuthenticationProvider brings the authentication abstractions (+ Providers).
 		-->
-		<PackageReference Include="Cirreum.Domain" Version="1.2.3" />
-		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.1.5" />
+		<PackageReference Include="Cirreum.Domain" Version="1.2.4" />
+		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.1.7" />
 
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="Polly" Version="8.7.0" />
