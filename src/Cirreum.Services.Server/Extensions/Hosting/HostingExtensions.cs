@@ -1,11 +1,13 @@
 ﻿namespace Microsoft.Extensions.DependencyInjection;
 
 using Cirreum;
+using Cirreum.Authentication.Events;
 using Cirreum.Clock;
 using Cirreum.Diagnostics;
 using Cirreum.Health;
 using Cirreum.Http.Invocation;
 using Cirreum.Invocation;
+using Cirreum.Invocation.Connections;
 using Cirreum.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
@@ -74,6 +76,25 @@ public static class HostingExtensions {
 			.AddTransient<ICsvFileBuilder, CsvFileBuilder>()
 			.AddTransient<ICsvFileReader, CsvFileReader>()
 			.AddTransient<IFileSystem, LocalFileSystem>();
+
+		//
+		// Connection registry + auth-event connection terminator (ADR-0027 Phase B).
+		// The registry is fed by the lifecycle hooks the source adapters already dispatch;
+		// the terminator sits inert until an IAuthenticationEventPublisher delivers events.
+		// One handler registration per event type — three lightweight instances over the
+		// same singleton registry (TryAddEnumerable cannot express a shared instance
+		// across service types).
+		//
+		services
+			.TryAddSingleton<IInvocationConnectionRegistry, InvocationConnectionRegistry>();
+		services
+			.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionLifecycle, ConnectionRegistryLifecycle>());
+		services
+			.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthenticationEventHandler<CredentialRevoked>, ConnectionTerminationHandler>());
+		services
+			.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthenticationEventHandler<UserAccountDisabled>, ConnectionTerminationHandler>());
+		services
+			.TryAddEnumerable(ServiceDescriptor.Singleton<IAuthenticationEventHandler<SessionTerminationRequested>, ConnectionTerminationHandler>());
 
 		return services;
 

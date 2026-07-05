@@ -19,7 +19,7 @@ sealed class UserStateAccessor(
 ) : IUserStateAccessor {
 
 	private const string UserContextKey = "__Cirreum_Context_UserState";
-	private static readonly IUserState AnonymousUserInstance = new ServerUser();
+	private static readonly IUserState AnonymousUserInstance = new ServerUserState();
 	private static readonly ValueTask<IUserState> AnonymousUserValueTaskInstance =
 		new ValueTask<IUserState>(AnonymousUserInstance);
 
@@ -32,7 +32,7 @@ sealed class UserStateAccessor(
 
 		// Check if we already have a UserState for this invocation
 		if (invocation.Items.TryGetValue(UserContextKey, out var existingUser)
-			&& existingUser is ServerUser user) {
+			&& existingUser is ServerUserState user) {
 			return new ValueTask<IUserState>(user);
 		}
 
@@ -42,7 +42,7 @@ sealed class UserStateAccessor(
 			return AnonymousUserValueTaskInstance;
 		}
 
-		// Create and enrich a new ServerUser
+		// Create and enrich a new ServerUserState
 		// ----------------------------------
 
 		return this.CreateUserAsync(invocation, principal);
@@ -71,8 +71,8 @@ sealed class UserStateAccessor(
 			AddAppNameToClaim(identity, appName);
 		}
 
-		// 2. Create a new ServerUser and set the authenticated principal
-		var user = new ServerUser();
+		// 2. Create a new ServerUserState and set the authenticated principal
+		var user = new ServerUserState();
 		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
 
 		// 3. Application user — cache hit (from claims transformer) or live resolve
@@ -126,7 +126,7 @@ sealed class UserStateAccessor(
 		identity.AddClaim(new Claim(RemoteIdentityConstants.AppNameClaimType, appName));
 
 	}
-	private static async ValueTask ResolveApplicationUserAsync(ServerUser user, IInvocationContext invocation) {
+	private static async ValueTask ResolveApplicationUserAsync(ServerUserState user, IInvocationContext invocation) {
 
 		// Cache hit: ApplicationUserRoleResolverAdapter (run during claims transformation,
 		// inside AuthenticateAsync) already resolved the application user and stashed it
@@ -184,7 +184,7 @@ sealed class UserStateAccessor(
 		user.SetResolvedApplicationUser(null);
 
 	}
-	private static void ResolveAuthenticationBoundary(ServerUser user, IInvocationContext invocation) {
+	private static void ResolveAuthenticationBoundary(ServerUserState user, IInvocationContext invocation) {
 		var resolver = invocation.Services.GetService<IAuthenticationBoundaryResolver>();
 		if (resolver is null) {
 			user.SetResolvedAuthenticationBoundary(AuthenticationBoundary.None);

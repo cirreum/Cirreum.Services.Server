@@ -1,22 +1,13 @@
-﻿namespace Cirreum.Security;
+namespace Cirreum.Security;
 
 using Cirreum.AuthenticationProvider.Security;
 using System.Security.Claims;
 
 /// <summary>
-/// Extends <see cref="UserStateBase"/> with an additional property
-/// of <see cref="AppName"/>.
+/// The server-side <see cref="IUserState"/> implementation, materialized per invocation by
+/// <see cref="UserStateAccessor"/> from the invocation's snapshotted principal.
 /// </summary>
-public abstract class ServerUserBase : UserStateBase {
-
-	/// <summary>
-	/// Gets the name of the application that called the server; or any empty string.
-	/// </summary>
-	public string AppName { get; protected set; } = "";
-
-}
-
-internal sealed class ServerUser : ServerUserBase {
+internal sealed class ServerUserState : ServerUserBase {
 
 	public override bool IsAuthenticationComplete { get; } = true;
 

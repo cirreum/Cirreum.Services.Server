@@ -2,8 +2,8 @@
 
 	<PropertyGroup>
 		<RootNamespace>Cirreum</RootNamespace>
-		<Description>Service library for Cirreum ASP.NET servers. Absorbs the per-source Invocation packages (HTTP, WebSocket, SignalR) so a single package owns the framework's server-side invocation surface.</Description>
-		<PackageTags>cirreum;infrastructure;services;server;invocation;websocket;signalr</PackageTags>
+		<Description>Service library for Cirreum ASP.NET servers. Absorbs the per-source Invocation packages (HTTP, WebSocket, SignalR) so a single package owns the framework's server-side invocation surface, including the per-server connection registry and the auth-event connection terminator (revocation / forced sign-out aborts a subject's live long-lived connections).</Description>
+		<PackageTags>cirreum;infrastructure;services;server;invocation;websocket;signalr;termination;revocation</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -14,8 +14,8 @@
 			(AuthenticationContextKeys + auth events), Cirreum.Exceptions, and Cirreum.Result
 			transitively; Cirreum.AuthenticationProvider brings the authentication abstractions (+ Providers).
 		-->
-		<PackageReference Include="Cirreum.Domain" Version="1.2.1" />
-		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.1.3" />
+		<PackageReference Include="Cirreum.Domain" Version="1.2.3" />
+		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.1.5" />
 
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="Polly" Version="8.7.0" />
@@ -31,6 +31,10 @@
 		<Using Include="Cirreum" />
 		<Using Include="Cirreum.Exceptions" />
 		<Using Include="Cirreum.FileSystem" />
+	</ItemGroup>
+
+	<ItemGroup Label="InternalsVisibleTo" Condition="'$(IsLocalBuild)' == 'true'">
+		<InternalsVisibleTo Include="Cirreum.Services.Server.Tests" />
 	</ItemGroup>
 
 </Project>

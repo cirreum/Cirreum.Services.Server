@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **ADR-0027 Phase B — connection registry + auth-event connection terminator.**
+  `InvocationConnectionRegistry` is the first implementation of `IInvocationConnectionRegistry`
+  (`Cirreum.Contracts`): a per-server, `ConcurrentDictionary`-backed index of active long-lived
+  connections, fed by a new framework-shipped `IConnectionLifecycle` (`ConnectionRegistryLifecycle`)
+  through the connect/disconnect hooks the SignalR and WebSocket adapters already dispatch. Subjects
+  are resolved at *query* time via `ClaimsHelper.ResolveId` (the same resolution behind `IUserState.Id`)
+  over the connection's effective principal, so Two-Phase Auth promotions are honored with no
+  re-registration and no staleness window.
+- `ConnectionTerminationHandler` reacts to `CredentialRevoked`, `UserAccountDisabled`, and
+  `SessionTerminationRequested` by calling the idempotent `IInvocationConnection.Abort()` on the
+  subject's registered connections. `CredentialRevoked`/`UserAccountDisabled` abort all of the
+  subject's connections (conservative posture); `SessionTerminationRequested.SessionId` scopes
+  termination to the connection whose `ConnectionId` matches ("sign out this device" — the app reads
+  the id off `IInvocationContext.Connection`) or whose effective principal carries an equal OIDC
+  `sid` claim (browser-session scope). Scoping never widens beyond the subject; an unmatched scoped
+  request terminates nothing. All registered in `AddCoreServices()`; the handlers sit inert until an
+  `IAuthenticationEventPublisher` (ADR-0025) delivers events.
+- **`CirreumUserIdProvider`** — aligns SignalR's `Clients.User(...)` addressing with the framework's
+  subject identity (`ClaimsHelper.ResolveId` ≡ `IUserState.Id` ≡ auth-event `Subject`). SignalR's own
+  default reads `ClaimTypes.NameIdentifier` only, which diverges from the framework's oid-preferring
+  resolution on Entra-backed apps — two user-addressing systems silently disagreeing about who a
+  connection belongs to. Wired by `TryAddSignalRInvocationFilter` only while SignalR's
+  `DefaultUserIdProvider` is still in place; an app-registered custom `IUserIdProvider` always wins.
+  Note: SignalR caches the user id at connection time (inherent to SignalR), so promoted connections
+  remain addressed by their upgrade identity in `Clients.User(...)` — promotion-aware targeting goes
+  through `IInvocationConnectionRegistry.FindBySubject` + `SendAsync` instead.
+- First test suite for this repo (31 tests): registry, lifecycle registrar, terminator (including
+  promotion, sid-scoping, and cross-subject isolation), user-id provider wiring, and DI registration
+  coverage.
+
+### Fixed
+
+- **Connection-registry leak on the raw-WebSocket connect-failure path.** `ConnectionRegistryLifecycle`
+  registered a connection in `OnConnectedAsync`, but the raw-WebSocket orchestrator skips
+  `OnDisconnectedAsync` (the only unregister signal) when a connect is *rejected* (a later
+  `IConnectionLifecycle` returns `false`) or *faults* (a hook or the app handler throws) — so every such
+  connection leaked permanently into the singleton registry (unbounded growth under repeated rejected
+  upgrades, plus phantom `FindBySubject`/`All()` results and stale `ClaimsPrincipal` retention). Cleanup is
+  now also tied to the connection's own `Aborted` token: both failure paths dispose the connection, and
+  `WebSocketConnection.DisposeAsync` cancels `Aborted` first, so `Unregister` runs on every teardown path
+  for both transports. `OnDisconnectedAsync` still removes promptly on the graceful path; `Unregister` is
+  idempotent. This follows `IConnectionLifecycle`'s intended division (now documented in
+  `Cirreum.Contracts`): `OnDisconnectedAsync` observes a live connection's disconnect, while
+  `IInvocationConnection.Aborted` is the cleanup signal that also covers rejected/faulted establishment.
+  (Found by an adversarial multi-agent review of this change set — the sole surviving finding.)
+
+- **Two-Phase Auth promotion is now actually consumed.** `TwoPhaseAuth.Promote`
+  (`Cirreum.Runtime.AuthenticationProvider`) stamps the promoted principal into
+  `IInvocationConnection.Items`, and both its docs and `AuthenticationContextKeys.PromotedPrincipal`'s
+  docs promised the per-invocation `UserStateAccessor` reads it in preference to the connection's
+  original principal — but nothing anywhere read the slot, so promoted connections kept flowing as
+  anonymous. `SignalRInvocationContext` and `WebSocketInvocationContext` now construct their
+  per-invocation `User` snapshot from the effective principal (promoted when present, upgrade-time
+  otherwise), making the documented precedence true for `UserStateAccessor` and every other
+  `invocation.User` consumer. Promotion takes effect from the next invocation on the connection.
+
 ## [1.2.8] - 2026-07-04
 
 ### Updated

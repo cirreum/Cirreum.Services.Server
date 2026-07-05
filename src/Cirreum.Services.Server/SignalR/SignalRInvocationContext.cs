@@ -42,7 +42,10 @@ internal sealed class SignalRInvocationContext : IInvocationContext {
 		SignalRConnection connection,
 		IServiceProvider services) {
 
-		this.User = connection.User;
+		// Effective principal: a connection promoted mid-flight via Two-Phase Auth
+		// flows the promoted identity into every subsequent invocation's snapshot;
+		// un-promoted connections flow the upgrade-time principal.
+		this.User = connection.EffectiveUser;
 		this.Services = services;
 		this.Aborted = connection.Aborted;
 		this.Connection = connection;
@@ -80,6 +83,13 @@ internal sealed class SignalRInvocationContext : IInvocationContext {
 		// without needing to know about Connection.Items. App per-message writes to
 		// invocation.Items don't propagate back to Connection.Items (separate dicts) —
 		// per-message isolation.
+		//
+		// Promotion invariant: Two-Phase Auth promotion EVICTS ApplicationUserCache from
+		// Connection.Items when it stamps the promoted principal, so this seed can never
+		// attach a pre-promotion identity's domain user to promoted invocations; the lazy
+		// resolve path repopulates the slot for the promoted identity. AuthenticatedScheme
+		// deliberately survives promotion — it describes how the CONNECTION (transport)
+		// was authenticated, not the current occupant.
 		var dict = new Dictionary<object, object?>();
 		if (connection.Items.TryGetValue(AuthenticationContextKeys.AuthenticatedScheme, out var scheme)) {
 			dict[AuthenticationContextKeys.AuthenticatedScheme] = scheme;

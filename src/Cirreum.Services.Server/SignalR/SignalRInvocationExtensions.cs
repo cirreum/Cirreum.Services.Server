@@ -43,6 +43,15 @@ public static class SignalRInvocationExtensions {
 		services.TryAddSingleton<InvocationContextHubFilter>();
 		services.Configure<HubOptions>(o => o.AddFilter<InvocationContextHubFilter>());
 
+		// Align SignalR's Clients.User(...) addressing with the framework's subject identity
+		// (ClaimsHelper.ResolveId ≡ IUserState.Id ≡ auth-event Subject) — but only while
+		// SignalR's own default provider is still in place. An app-registered custom
+		// IUserIdProvider (any other implementation type) always wins.
+		var userIdProvider = services.LastOrDefault(d => d.ServiceType == typeof(IUserIdProvider));
+		if (userIdProvider?.ImplementationType == typeof(DefaultUserIdProvider)) {
+			services.Replace(ServiceDescriptor.Singleton<IUserIdProvider, CirreumUserIdProvider>());
+		}
+
 		return services;
 	}
 

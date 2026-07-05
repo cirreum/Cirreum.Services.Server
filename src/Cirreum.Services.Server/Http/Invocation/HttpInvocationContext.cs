@@ -3,7 +3,6 @@ namespace Cirreum.Http.Invocation;
 using Cirreum.Invocation;
 using Cirreum.Invocation.Connections;
 using Cirreum.RemoteServices;
-using Cirreum.Security;
 using System.Security.Claims;
 
 /// <summary>
@@ -13,7 +12,7 @@ using System.Security.Claims;
 /// </summary>
 /// <remarks>
 /// Items aliasing is intentional: existing framework code that reads/writes
-/// <c>HttpContext.Items</c> through <see cref="AuthenticationContextKeys"/> slots
+/// <c>HttpContext.Items</c> through <see cref="Authentication.AuthenticationContextKeys"/> slots
 /// (e.g., the role-claims transformer, <c>UserStateAccessor</c>) continues to work
 /// transparently when migrated to <see cref="IInvocationContext.Items"/>.
 /// </remarks>

@@ -15,6 +15,7 @@
 ## Features
 
 - **Invocation Context Bridge**: HTTP→`IInvocationContext` middleware that publishes a unified, transport-agnostic per-invocation seam consumed by framework code (CQRS handlers, authorization, audit, repositories)
+- **Connection Registry & Termination**: a per-server registry of active long-lived connections (SignalR, WebSocket) plus the framework-shipped terminator that reacts to `CredentialRevoked` / `UserAccountDisabled` / `SessionTerminationRequested` auth events by aborting the subject's live connections — revocation reaches open sockets, not just future requests. Honors Two-Phase Auth promotion (promoted connections are attributed to their promoted identity)
 - **Global Exception Handling**: RFC 7807 compliant Problem Details with environment-aware responses
 - **Hybrid Caching**: Modern caching infrastructure with tag-based invalidation and smart expiration policies  
 - **Security Services**: Claims-based user context management and authentication integration
