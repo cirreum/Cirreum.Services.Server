@@ -165,15 +165,19 @@ sealed class UserStateAccessor(
 			if (appUser is not null) {
 				user.SetResolvedApplicationUser(appUser);
 				invocation.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
-				// Future-proof for long-lived sources: when a null-scheme resolver eventually
-				// fires for header-auth or M2M-on-behalf-of-human (the AI/LLM Piece 2 seam),
-				// propagate the resolved user to the connection-lifetime bag so subsequent
-				// invocations on the same connection seed correctly via the source adapter's
-				// per-invocation Items copy. Today this line is dead-code for all current
-				// resolver registrations (audience-auth pre-populates the cache at upgrade;
-				// header-auth has no matching resolver so this branch never fires) — the
-				// branch exists to prevent IdP hammering the day a null-scheme resolver
-				// registers and the lazy-resolve path goes live.
+				// Connection-lifetime write-back: THE re-hydration leg after Two-Phase Auth
+				// promotion. connection.Promote(principal) evicts ApplicationUserCache from
+				// Connection.Items (the cached user belonged to the pre-promotion identity),
+				// so the next invocation seeds nothing, misses above, and lands here — the
+				// resolver dispatch keyed on AuthenticatedScheme (which deliberately survives
+				// promotion) resolves for the PROMOTED subject (user.Id comes from
+				// EffectiveUser), and this write-back re-populates the connection bag so
+				// subsequent invocations seed the promoted identity's user: one resolver
+				// call per promotion, not per message. Also serves any future long-lived
+				// source whose lazy resolve goes live (null-scheme resolver for header-auth
+				// or M2M-on-behalf-of-human — the AI/LLM Piece 2 seam). For audience-auth
+				// connections that never promote, the upgrade pre-populates the cache and
+				// this branch never fires.
 				if (invocation.Connection is { } connection) {
 					connection.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 				}
