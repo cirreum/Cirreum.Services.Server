@@ -60,6 +60,13 @@ public static class HostingExtensions {
 		services
 			.AddScoped<IUserStateAccessor, UserStateAccessor>();
 
+		// The accessor stamps the caller's AuthenticationBoundary during user-state
+		// assembly, so the package that consumes the resolver guarantees one exists.
+		// TryAdd — a scheme-aware resolver (Authentication track) or an app-registered
+		// custom resolver wins when registered first.
+		services
+			.TryAddSingleton<IAuthenticationBoundaryResolver, DefaultAuthenticationBoundaryResolver>();
+
 		//
 		// DateTime/Clock
 		//

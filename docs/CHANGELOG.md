@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`UserStateAccessor` now always has an authentication-boundary resolver.** Since
+  the Foundation Reset, no package registered an `IAuthenticationBoundaryResolver`,
+  so the accessor's null-fallback stamped `AuthenticationBoundary.None` on every
+  user state — grant providers gating on `Global`/`Tenant` could never pass. This
+  package now `TryAdd`-registers the default resolver (authenticated → `Global`)
+  alongside the accessor: the consumer of the seam guarantees it exists (ADR-0032).
+  A scheme-aware or app-registered resolver registered earlier still wins.
+
+### Changed
+
+- Authentication-boundary resolution is consumed from `Cirreum.Kernel`
+  (`Cirreum.Security`), and the `Cirreum.AuthenticationProvider` package reference
+  is dropped — this package no longer depends on the Authentication track's
+  contracts. `Cirreum.Kernel` becomes a direct compile dependency (ADR-0032).
+
 ### Updated
 
 - Updated NuGet packages.

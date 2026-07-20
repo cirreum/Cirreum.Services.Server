@@ -10,12 +10,14 @@
 		<!--
 			Service library composing over the server spine. Cirreum.Domain brings the
 			Contracts surface (the Invocation abstractions IInvocationContext /
-			IInvocationConnection / IConnectionEstablishmentContributor, FileSystem), Cirreum.Kernel
-			(AuthenticationContextKeys + auth events), Cirreum.Exceptions, and Cirreum.Result
-			transitively; Cirreum.AuthenticationProvider brings the authentication abstractions (+ Providers).
+			IInvocationConnection / IConnectionEstablishmentContributor, FileSystem),
+			Cirreum.Exceptions, and Cirreum.Result transitively. Cirreum.Kernel is a direct
+			compile dependency (AuthenticationContextKeys, auth events, IUserState /
+			UserStateBase, and the authentication-boundary resolution seam this package
+			registers and consumes).
 		-->
 		<PackageReference Include="Cirreum.Domain" Version="1.2.6" />
-		<PackageReference Include="Cirreum.AuthenticationProvider" Version="1.3.0" />
+		<PackageReference Include="Cirreum.Kernel" Version="1.2.0" />
 
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="Polly" Version="8.7.0" />

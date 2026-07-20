@@ -1,7 +1,6 @@
 namespace Cirreum.Security;
 
 using Cirreum.Authentication;
-using Cirreum.AuthenticationProvider.Security;
 using Cirreum.Http.Invocation;
 using Cirreum.Invocation;
 using Cirreum.RemoteServices;
