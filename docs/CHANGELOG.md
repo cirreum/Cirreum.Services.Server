@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The 1.4.0 default-resolver registration ran too early and is removed.**
+  `AddCoreServices()` executes at builder construction — before the application's
+  composition — so its `TryAdd` of the default `IAuthenticationBoundaryResolver`
+  pre-empted the Authentication track's scheme-aware resolver (registered later,
+  during `AddAuthentication()`), reducing every caller to the blanket default. The
+  last-chance default is registered by the spine (`Cirreum.Runtime.Server`) at
+  `Build()` time instead, where composition-time registrations always win;
+  `UserStateAccessor` tolerates absence by stamping `None`.
+
 ## [1.4.0] - 2026-07-20
 
 ### Fixed

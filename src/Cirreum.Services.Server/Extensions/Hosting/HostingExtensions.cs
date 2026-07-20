@@ -60,12 +60,12 @@ public static class HostingExtensions {
 		services
 			.AddScoped<IUserStateAccessor, UserStateAccessor>();
 
-		// The accessor stamps the caller's AuthenticationBoundary during user-state
-		// assembly, so the package that consumes the resolver guarantees one exists.
-		// TryAdd — a scheme-aware resolver (Authentication track) or an app-registered
-		// custom resolver wins when registered first.
-		services
-			.TryAddSingleton<IAuthenticationBoundaryResolver, DefaultAuthenticationBoundaryResolver>();
+		// The default IAuthenticationBoundaryResolver is deliberately NOT registered
+		// here: AddCoreServices runs at builder construction, before the app's
+		// composition, and a TryAdd default at this point would pre-empt the
+		// Authentication track's scheme-aware resolver. The spine
+		// (Cirreum.Runtime.Server) TryAdds the last-chance default at Build() time;
+		// UserStateAccessor tolerates absence by stamping None.
 
 		//
 		// DateTime/Clock
