@@ -54,13 +54,13 @@ public abstract class WebSocketHandler {
 			"OnDisconnectedAsync; during OnAcceptAsync / OnSelectSubProtocolAsync " +
 			"the connection does not yet exist.");
 
-		public string ConnectionId                           => throw Pending();
-		public ClaimsPrincipal User                          => throw Pending();
-		public DateTimeOffset ConnectedAtUtc                 => throw Pending();
-		public IDictionary<object, object?> Items            => throw Pending();
-		public string InvocationSource                       => throw Pending();
-		public CancellationToken Aborted                     => throw Pending();
-		public void Abort()                                  => throw Pending();
+		public string ConnectionId => throw Pending();
+		public ClaimsPrincipal User => throw Pending();
+		public DateTimeOffset ConnectedAtUtc => throw Pending();
+		public IDictionary<object, object?> Items => throw Pending();
+		public string InvocationSource => throw Pending();
+		public CancellationToken Aborted => throw Pending();
+		public void Abort() => throw Pending();
 		public ValueTask SendAsync<T>(T payload, CancellationToken cancellationToken = default) => throw Pending();
 		public ValueTask SendAsync<T>(string method, T payload, CancellationToken cancellationToken = default) => throw Pending();
 		public ValueTask SendBytesAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType messageType = WebSocketMessageType.Binary, CancellationToken cancellationToken = default) => throw Pending();

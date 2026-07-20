@@ -1,7 +1,6 @@
 namespace Microsoft.Extensions.Hosting;
 
 using Cirreum.Invocation.WebSockets;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>

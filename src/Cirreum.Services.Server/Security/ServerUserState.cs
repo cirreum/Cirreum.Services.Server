@@ -1,6 +1,5 @@
 namespace Cirreum.Security;
 
-using Cirreum.AuthenticationProvider.Security;
 using System.Security.Claims;
 
 /// <summary>

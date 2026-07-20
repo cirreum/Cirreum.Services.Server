@@ -18,8 +18,8 @@ internal sealed class StartupHealthCheck : IStartedAndAliveHealthCheck {
 
 	/// <inheritdoc/>
 	public bool StartupCompleted {
-		get => _hasStarted;
-		set => _hasStarted = value;
+		get => this._hasStarted;
+		set => this._hasStarted = value;
 	}
 
 	/// <inheritdoc/>
