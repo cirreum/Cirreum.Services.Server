@@ -1,5 +1,10 @@
 # Cirreum.Services.Server 1.4.0 — Boundary resolution wired, auth-track dependency dropped
 
+> **Superseded on the registration point by 1.4.1** (same day): the default-resolver
+> registration described below ran too early (builder construction) and pre-empted
+> scheme-aware resolvers; it moved to `Cirreum.Runtime.Server` at `Build()` time.
+> See `RELEASE-NOTES-v1.4.1.md`.
+
 `UserStateAccessor` stamps the caller's `AuthenticationBoundary` on every invocation —
 but since the Foundation Reset, no package registered an
 `IAuthenticationBoundaryResolver`, so the accessor's null-fallback stamped
