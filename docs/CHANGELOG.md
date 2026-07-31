@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Updated
+
+- Re-pinned `Cirreum.Domain` `2.0.0` → `3.0.0` — restores operation-authorization enforcement
+  (the fail-open intercept fix shipped in Domain 2.0.1/3.0.0) and adopts the `IPolicyAuthorizer`
+  vocabulary; see Cirreum.Domain `MIGRATION-v3.md`.
+
 ## [1.4.4] - 2026-07-27
 
 ### Updated
