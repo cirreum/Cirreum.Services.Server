@@ -91,27 +91,36 @@ internal sealed class WebSocketInvocationContext : IInvocationContext {
 
 	private static Dictionary<object, object?> SeedAuthSlots(WebSocketConnection connection) {
 
-		// Per-invocation Items starts as a fresh dictionary, seeded with the well-known
-		// authentication slots from Connection.Items. These are connection-lifetime values
-		// (the same authenticated identity owns the entire connection); seeding them
-		// per-invocation lets UserStateAccessor and other consumers read invocation.Items
-		// without needing to know about Connection.Items. App per-message writes to
-		// invocation.Items don't propagate back to Connection.Items (separate dicts) —
-		// per-message isolation.
+		// Each invocation gets a fresh Items dictionary, seeded from the connection-scoped
+		// authentication slots. This lets invocation consumers read authentication state
+		// uniformly without needing to know about Connection.Items, while preserving
+		// per-invocation isolation: writes here never flow back to the connection.
 		//
-		// Promotion invariant: Two-Phase Auth promotion EVICTS ApplicationUserCache from
-		// Connection.Items when it stamps the promoted principal, so this seed can never
-		// attach a pre-promotion identity's domain user to promoted invocations; the lazy
-		// resolve path repopulates the slot for the promoted identity. AuthenticatedScheme
-		// deliberately survives promotion — it describes how the CONNECTION (transport)
-		// was authenticated, not the current occupant.
+		// Two-Phase Auth promotion evicts ApplicationUserCache from Connection.Items before
+		// stamping the promoted principal. A subsequent invocation therefore cannot inherit
+		// the previous occupant's cached application user; the normal lazy-resolution path
+		// repopulates it for the promoted identity.
+		//
+		// AuthenticatedScheme intentionally survives promotion. It describes how the
+		// connection was authenticated at establishment, not how its current effective
+		// principal was established.
+
 		var dict = new Dictionary<object, object?>();
-		if (connection.Items.TryGetValue(AuthenticationContextKeys.AuthenticatedScheme, out var scheme)) {
+
+		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.AuthenticatedScheme,
+			out var scheme)) {
+
 			dict[AuthenticationContextKeys.AuthenticatedScheme] = scheme;
 		}
-		if (connection.Items.TryGetValue(AuthenticationContextKeys.ApplicationUserCache, out var appUser)) {
+
+		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.ApplicationUserCache,
+			out var appUser)) {
+
 			dict[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 		}
+
 		return dict;
 	}
 
