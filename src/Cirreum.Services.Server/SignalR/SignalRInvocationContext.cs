@@ -7,33 +7,42 @@ using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
 /// <summary>
-/// <see cref="IInvocationContext"/> for SignalR-sourced invocations. Carries the
-/// per-method snapshot of the authenticated principal, the per-invocation DI scope, the
-/// invocation cancellation token, and the parent <see cref="IInvocationConnection"/>.
+/// <see cref="IInvocationContext"/> for SignalR-sourced invocations. Captures the
+/// per-method snapshot of the connection's effective principal and authentication state,
+/// together with the per-invocation DI scope, cancellation token, and parent
+/// <see cref="IInvocationConnection"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Items"/> is a fresh per-invocation dictionary — distinct from the
+/// <see cref="Items"/> is a fresh per-invocation dictionary, distinct from the
 /// per-connection <see cref="IInvocationConnection.Items"/>. Consumers that need state
-/// outliving a single Hub method invocation should write to
-/// <c>Connection.Items</c>, not here.
+/// to outlive a single Hub method invocation should use <c>Connection.Items</c>.
 /// </para>
 /// <para>
-/// At construction, the framework seeds the per-invocation bag with the well-known
-/// authentication slots (<c>AuthenticatedScheme</c>, <c>ApplicationUserCache</c>) from
-/// <c>Connection.Items</c> so consumers like <c>UserStateAccessor</c> read uniformly
-/// across HTTP and SignalR without re-resolving the application user on every Hub method
-/// invocation. The seed is a snapshot copy — per-invocation writes do NOT propagate back
-/// to <c>Connection.Items</c> (per-message state isolation). The
-/// connection-lifetime values were placed onto <c>Connection.Items</c> at upgrade by
-/// <see cref="InvocationContextHubFilter.OnConnectedAsync"/>.
+/// At construction, the framework snapshots the connection-scoped authentication slots
+/// (<c>AuthenticatedScheme</c>, <c>OriginScheme</c>, and
+/// <c>ApplicationUserCache</c>) into <see cref="Items"/>. This gives consumers such as
+/// <c>UserStateAccessor</c> a uniform per-invocation read surface across HTTP and
+/// SignalR sources without re-resolving the application user on every Hub method
+/// invocation.
 /// </para>
 /// <para>
-/// Used both for in-flight Hub method invocations (via <see cref="InvocationContextHubFilter"/>'s
-/// <c>InvokeMethodAsync</c>) and for synthetic invocation scopes around connection
-/// lifecycle hooks (<c>OnConnectedAsync</c> / <c>OnDisconnectedAsync</c>) so consumers
-/// like <c>IUserStateAccessor</c> work normally inside <see cref="IConnectionLifecycle"/>
-/// callbacks.
+/// The snapshot is isolated from the connection: writes to <see cref="Items"/> do not
+/// propagate back to <c>Connection.Items</c>. Two-Phase Auth promotion updates the
+/// connection-scoped authentication state, so the promoted principal and its origin
+/// become visible when the next invocation snapshot is created.
+/// </para>
+/// <para>
+/// The connection-scoped authentication state is established initially by
+/// <see cref="InvocationContextHubFilter.OnConnectedAsync"/> and may subsequently be
+/// updated by framework authentication behavior such as Two-Phase Auth promotion.
+/// </para>
+/// <para>
+/// This context is used both for normal Hub method invocations through
+/// <see cref="InvocationContextHubFilter"/> and for synthetic invocation scopes around
+/// connection lifecycle hooks (<c>OnConnectedAsync</c> / <c>OnDisconnectedAsync</c>),
+/// allowing ambient consumers such as <c>IUserStateAccessor</c> to operate normally
+/// inside <see cref="IConnectionLifecycle"/> callbacks.
 /// </para>
 /// </remarks>
 internal sealed class SignalRInvocationContext : IInvocationContext {
@@ -76,28 +85,46 @@ internal sealed class SignalRInvocationContext : IInvocationContext {
 
 	private static Dictionary<object, object?> SeedAuthSlots(SignalRConnection connection) {
 
-		// Per-invocation Items starts as a fresh dictionary, seeded with the well-known
-		// authentication slots from Connection.Items. These are connection-lifetime values
-		// (the same authenticated identity owns the entire connection); seeding them
-		// per-invocation lets UserStateAccessor and other consumers read invocation.Items
-		// without needing to know about Connection.Items. App per-message writes to
-		// invocation.Items don't propagate back to Connection.Items (separate dicts) —
-		// per-message isolation.
+		// Each invocation gets a fresh Items dictionary seeded from the connection-scoped
+		// authentication state. This gives invocation consumers a uniform read surface
+		// without requiring knowledge of Connection.Items, while preserving per-invocation
+		// isolation: writes to invocation.Items never flow back to the connection.
 		//
-		// Promotion invariant: Two-Phase Auth promotion EVICTS ApplicationUserCache from
-		// Connection.Items when it stamps the promoted principal, so this seed can never
-		// attach a pre-promotion identity's domain user to promoted invocations; the lazy
-		// resolve path repopulates the slot for the promoted identity. AuthenticatedScheme
-		// deliberately survives promotion — it describes how the CONNECTION (transport)
-		// was authenticated, not the current occupant.
+		// Two-Phase Auth promotion updates the connection's OriginScheme and evicts
+		// ApplicationUserCache when it stamps the promoted principal. The next invocation
+		// therefore snapshots the promoted subject's origin scheme without inheriting the
+		// previous subject's cached application user; the normal lazy-resolution path
+		// repopulates that cache for the promoted identity.
+		//
+		// AuthenticatedScheme intentionally survives promotion. It describes how the
+		// connection was authenticated at establishment, while OriginScheme describes how
+		// the current effective subject was established when that differs.
+
 		var dict = new Dictionary<object, object?>();
-		if (connection.Items.TryGetValue(AuthenticationContextKeys.AuthenticatedScheme, out var scheme)) {
+
+		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.AuthenticatedScheme,
+			out var scheme)) {
+
 			dict[AuthenticationContextKeys.AuthenticatedScheme] = scheme;
 		}
-		if (connection.Items.TryGetValue(AuthenticationContextKeys.ApplicationUserCache, out var appUser)) {
+
+		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.OriginScheme,
+			out var originScheme)) {
+
+			dict[AuthenticationContextKeys.OriginScheme] = originScheme;
+		}
+
+		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.ApplicationUserCache,
+			out var appUser)) {
+
 			dict[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 		}
+
 		return dict;
+
 	}
 
 }

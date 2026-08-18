@@ -6,41 +6,47 @@ using Cirreum.Invocation.Connections;
 using System.Security.Claims;
 
 /// <summary>
-/// <see cref="IInvocationContext"/> for WebSocket-sourced invocations. Carries the
-/// per-message snapshot of the authenticated principal, the per-invocation DI scope, the
-/// invocation cancellation token, and the parent <see cref="IInvocationConnection"/>.
+/// <see cref="IInvocationContext"/> for WebSocket-sourced invocations. Captures the
+/// per-message snapshot of the connection's effective principal and authentication state,
+/// together with the per-invocation DI scope, cancellation token, and parent
+/// <see cref="IInvocationConnection"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Items"/> is a fresh per-invocation dictionary — distinct from the
+/// <see cref="Items"/> is a fresh per-invocation dictionary, distinct from the
 /// per-connection <see cref="IInvocationConnection.Items"/>. Consumers that need state
-/// outliving a single WebSocket message should write to
-/// <c>Connection.Items</c>, not here.
+/// to outlive a single WebSocket message should use <c>Connection.Items</c>.
 /// </para>
 /// <para>
-/// At construction, the framework seeds the per-invocation bag with the well-known
-/// authentication slots (<c>AuthenticatedScheme</c>, <c>ApplicationUserCache</c>) from
-/// <c>Connection.Items</c> so consumers like <c>UserStateAccessor</c> read uniformly
-/// across HTTP and WebSocket without re-resolving the application user on every inbound
-/// message. The seed is a snapshot copy — per-invocation writes do NOT propagate back to
-/// <c>Connection.Items</c> (per-message state isolation). The
-/// connection-lifetime values were placed onto <c>Connection.Items</c> at upgrade by
-/// <see cref="WebSocketOrchestrator.HandleWebSocketAsync"/>.
+/// At construction, the framework snapshots the connection-scoped authentication slots
+/// (<c>AuthenticatedScheme</c>, <c>OriginScheme</c>, and
+/// <c>ApplicationUserCache</c>) into <see cref="Items"/>. This gives consumers such as
+/// <c>UserStateAccessor</c> a uniform per-invocation read surface across HTTP and
+/// WebSocket sources without re-resolving the application user on every message.
 /// </para>
 /// <para>
-/// Used both for in-flight message invocations (via the WebSocket middleware's frame loop)
-/// and for synthetic invocation scopes around connection lifecycle hooks
-/// (<c>OnConnectedAsync</c> / <c>OnDisconnectedAsync</c>) so consumers like
-/// <c>IUserStateAccessor</c> work normally inside <see cref="IConnectionLifecycle"/>
-/// callbacks.
+/// The snapshot is isolated from the connection: writes to <see cref="Items"/> do not
+/// propagate back to <c>Connection.Items</c>. Two-Phase Auth promotion updates the
+/// connection-scoped authentication state, so the promoted principal and its origin
+/// become visible when the next invocation snapshot is created.
 /// </para>
 /// <para>
-/// During disconnect, the framework constructs the context with an explicit cleanup-budget
-/// token (via the internal constructor overload) so that <see cref="Aborted"/> reflects
-/// the bounded cleanup window — matching what the handler's <c>OnDisconnectedAsync</c>
-/// parameter receives. Services that resolve <c>IInvocationContextAccessor.Current.Aborted</c>
-/// during cleanup get the same bounded budget rather than the connection's already-canceled
-/// token.
+/// The connection-scoped authentication state is established initially by
+/// <see cref="WebSocketOrchestrator.HandleWebSocketAsync"/> and may subsequently be
+/// updated by framework authentication behavior such as Two-Phase Auth promotion.
+/// </para>
+/// <para>
+/// This context is used both for normal WebSocket message invocations and for synthetic
+/// invocation scopes around connection lifecycle hooks
+/// (<c>OnConnectedAsync</c> / <c>OnDisconnectedAsync</c>), allowing ambient consumers
+/// such as <c>IUserStateAccessor</c> to operate normally inside
+/// <see cref="IConnectionLifecycle"/> callbacks.
+/// </para>
+/// <para>
+/// During disconnect, the framework constructs the context with an explicit
+/// cleanup-budget token so <see cref="Aborted"/> represents the bounded cleanup window
+/// rather than the connection's already-canceled token. Ambient consumers therefore
+/// observe the same cancellation budget supplied to the disconnect lifecycle callback.
 /// </para>
 /// </remarks>
 internal sealed class WebSocketInvocationContext : IInvocationContext {
@@ -91,19 +97,20 @@ internal sealed class WebSocketInvocationContext : IInvocationContext {
 
 	private static Dictionary<object, object?> SeedAuthSlots(WebSocketConnection connection) {
 
-		// Each invocation gets a fresh Items dictionary, seeded from the connection-scoped
-		// authentication slots. This lets invocation consumers read authentication state
-		// uniformly without needing to know about Connection.Items, while preserving
-		// per-invocation isolation: writes here never flow back to the connection.
+		// Each invocation gets a fresh Items dictionary seeded from the connection-scoped
+		// authentication state. This gives invocation consumers a uniform read surface
+		// without requiring knowledge of Connection.Items, while preserving per-invocation
+		// isolation: writes to invocation.Items never flow back to the connection.
 		//
-		// Two-Phase Auth promotion evicts ApplicationUserCache from Connection.Items before
-		// stamping the promoted principal. A subsequent invocation therefore cannot inherit
-		// the previous occupant's cached application user; the normal lazy-resolution path
-		// repopulates it for the promoted identity.
+		// Two-Phase Auth promotion updates the connection's OriginScheme and evicts
+		// ApplicationUserCache when it stamps the promoted principal. The next invocation
+		// therefore snapshots the promoted subject's origin scheme without inheriting the
+		// previous subject's cached application user; the normal lazy-resolution path
+		// repopulates that cache for the promoted identity.
 		//
 		// AuthenticatedScheme intentionally survives promotion. It describes how the
-		// connection was authenticated at establishment, not how its current effective
-		// principal was established.
+		// connection was authenticated at establishment, while OriginScheme describes how
+		// the current effective subject was established when that differs.
 
 		var dict = new Dictionary<object, object?>();
 
@@ -115,6 +122,13 @@ internal sealed class WebSocketInvocationContext : IInvocationContext {
 		}
 
 		if (connection.Items.TryGetValue(
+			AuthenticationContextKeys.OriginScheme,
+			out var originScheme)) {
+
+			dict[AuthenticationContextKeys.OriginScheme] = originScheme;
+		}
+
+		if (connection.Items.TryGetValue(
 			AuthenticationContextKeys.ApplicationUserCache,
 			out var appUser)) {
 
@@ -122,6 +136,7 @@ internal sealed class WebSocketInvocationContext : IInvocationContext {
 		}
 
 		return dict;
+
 	}
 
 }
