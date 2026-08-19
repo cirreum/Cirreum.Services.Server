@@ -52,10 +52,14 @@ health probes).
 ### User-State Assembly and the Authentication Boundary
 
 `UserStateAccessor` assembles the per-invocation `ServerUserState` in ordered steps —
-principal snapshot, application-user resolution, then **authentication-boundary
-stamping**: it resolves `IAuthenticationBoundaryResolver` (from `Cirreum.Kernel`,
-namespace `Cirreum.Security`) out of the invocation's scope and stamps the verdict;
-a missing resolver stamps `None`. `AddCoreServices()` `TryAdd`-registers the Kernel
+**subject-kind resolution** (step 0: the effective scheme `OriginScheme ??
+AuthenticatedScheme` resolved through an optional `ISchemeClaimAuthorityMap`; no map →
+`Unknown`), fill-only app-name claims enrichment (machine-gated when a map is registered,
+legacy blank-name gate otherwise), principal snapshot, application-user resolution
+(dispatched on the effective scheme), then **authentication-boundary stamping**: it
+resolves `IAuthenticationBoundaryResolver` (from `Cirreum.Kernel`, namespace
+`Cirreum.Security`) out of the invocation's scope and stamps the verdict; a missing
+resolver stamps `None`. `AddCoreServices()` `TryAdd`-registers the Kernel
 default resolver (authenticated → `Global`) alongside the accessor — the consumer of
 the seam guarantees one exists. A scheme-aware resolver (registered by
 `Cirreum.Runtime.Authentication` where `PrimaryScheme` is read) or an app-registered

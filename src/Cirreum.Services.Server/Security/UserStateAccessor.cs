@@ -51,21 +51,30 @@ sealed class UserStateAccessor(
 	private async ValueTask<IUserState> CreateUserAsync(IInvocationContext invocation, ClaimsPrincipal principal) {
 
 		// Enrichment order matters — each step may depend on the previous:
-		//   1. Claims enrichment  — adds app-name claims to the principal
+		//   0. SubjectKind        — the effective scheme's declaration; gates the app-name fallback
+		//   1. Claims enrichment  — fill-only app-name claims on the principal
 		//   2. SetAuthenticatedPrincipal — builds the UserProfile from enriched claims
 		//   3. ApplicationUser — resolves the domain user (may use Id from step 2)
 		//   4. AuthenticationBoundary — resolves Global/Tenant (may inspect ApplicationUser from step 3)
 
-		// 1. Pre-enrich the ClaimsPrincipal with app name from header if present
+		// 0. Subject kind — the effective scheme (origin ?? authenticated) is the scheme that
+		// established the subject; its declaration answers person-or-machine. Resolved
+		// optionally: with no registered map every scheme is Undeclared and the kind stays
+		// Unknown.
+		var map = invocation.Services.GetService<ISchemeClaimAuthorityMap>();
+		var subjectKind = map?.Get(invocation.EffectiveScheme).SubjectKind ?? SubjectKind.Unknown;
+
+		// 1. Pre-enrich the ClaimsPrincipal with the caller-supplied app name. Fill-only: the
+		// header is unauthenticated, so it may add a Name claim where the credential minted
+		// none, and never removes or overwrites credential-derived claims. The machine gate
+		// applies once a declaration map is registered; without one the subject kind is
+		// unresolvable and the legacy blank-name gate stands.
 		var appName = (invocation as HttpInvocationContext)?.AppName;
 		if (!string.IsNullOrWhiteSpace(appName) &&
 			principal.Identity is ClaimsIdentity identity) {
-			var idName = ClaimsHelper.ResolveName(identity);
-			if (string.IsNullOrWhiteSpace(idName)) {
-				// This is for M2M scenarios where the identity may not have a
-				// meaningful Name claim, so we use the app name as the Name
-				// claim for easier identification in logs and diagnostics
-				AddAppNameAsNameClaim(identity, appName);
+			if ((map is null || subjectKind is SubjectKind.Machine)
+				&& string.IsNullOrWhiteSpace(ClaimsHelper.ResolveName(identity))) {
+				identity.AddClaim(new Claim(ClaimTypes.Name, appName));
 			}
 			AddAppNameToClaim(identity, appName);
 		}
@@ -73,6 +82,7 @@ sealed class UserStateAccessor(
 		// 2. Create a new ServerUserState and set the authenticated principal
 		var user = new ServerUserState();
 		user.SetAuthenticatedPrincipal(principal, appName ?? "", webHostEnvironment.IsDevelopment());
+		user.SetResolvedSubjectKind(subjectKind);
 
 		// 3. Application user — cache hit (from claims transformer) or live resolve
 		await ResolveApplicationUserAsync(user, invocation);
@@ -87,32 +97,6 @@ sealed class UserStateAccessor(
 
 	}
 
-	private static void AddAppNameAsNameClaim(ClaimsIdentity identity, string appName) {
-
-		// Remove the URI format name claim if it exists
-		var uriNameClaim = identity.FindFirst(identity.NameClaimType);
-		if (uriNameClaim != null) {
-			identity.RemoveClaim(uriNameClaim);
-		}
-
-		// If the identity.NameClaimType isn't ClaimTypes.Name, check for that too
-		if (identity.NameClaimType != ClaimTypes.Name) {
-			var stdNameClaim = identity.FindFirst(ClaimTypes.Name);
-			if (stdNameClaim != null) {
-				identity.RemoveClaim(stdNameClaim);
-			}
-		}
-
-		// Remove the simple string format name claim if it exists
-		var simpleNameClaim = identity.FindFirst("name");
-		if (simpleNameClaim != null) {
-			identity.RemoveClaim(simpleNameClaim);
-		}
-
-		// Add the app name from header as the Name claim
-		identity.AddClaim(new Claim(ClaimTypes.Name, appName));
-
-	}
 	private static void AddAppNameToClaim(ClaimsIdentity identity, string appName) {
 
 		// Remove existing app name claim if present
@@ -145,15 +129,17 @@ sealed class UserStateAccessor(
 		//   - Non-HTTP code paths that synthesize HttpContext without running claims
 		//     transformation (test harnesses, internal dispatch).
 		//
-		// Dispatch to the resolver matching the request's authenticated scheme; falls
-		// back to the null-scheme default. No matching resolver = correct null outcome.
+		// Dispatch to the resolver matching the subject's effective scheme — the origin
+		// when the subject was established by another scheme (a ticket continuation or a
+		// promotion), else the authenticated scheme; falls back to the null-scheme default.
+		// No matching resolver = correct null outcome.
 		var resolvers = invocation.Services.GetServices<IApplicationUserResolver>();
 		if (!resolvers.Any()) {
 			user.SetResolvedApplicationUser(null);
 			return;
 		}
 
-		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
+		var scheme = invocation.EffectiveScheme
 				  ?? user.Principal.Identity?.AuthenticationType;
 
 		var resolver = resolvers.FirstOrDefault(r => r.Scheme == scheme)
@@ -165,11 +151,12 @@ sealed class UserStateAccessor(
 				user.SetResolvedApplicationUser(appUser);
 				invocation.Items[AuthenticationContextKeys.ApplicationUserCache] = appUser;
 				// Connection-lifetime write-back: THE re-hydration leg after Two-Phase Auth
-				// promotion. connection.Promote(principal) evicts ApplicationUserCache from
-				// Connection.Items (the cached user belonged to the pre-promotion identity),
-				// so the next invocation seeds nothing, misses above, and lands here — the
-				// resolver dispatch keyed on AuthenticatedScheme (which deliberately survives
-				// promotion) resolves for the PROMOTED subject (user.Id comes from
+				// promotion. connection.Promote(principal, originScheme) evicts
+				// ApplicationUserCache from Connection.Items (the cached user belonged to the
+				// pre-promotion identity), so the next invocation seeds nothing, misses above,
+				// and lands here — the resolver dispatch keyed on the effective scheme (the
+				// promoted subject's origin when stamped, else the connection's authenticated
+				// scheme) resolves for the PROMOTED subject (user.Id comes from
 				// EffectiveUser), and this write-back re-populates the connection bag so
 				// subsequent invocations seed the promoted identity's user: one resolver
 				// call per promotion, not per message. Also serves any future long-lived
@@ -194,7 +181,7 @@ sealed class UserStateAccessor(
 			return;
 		}
 
-		var scheme = invocation.Items[AuthenticationContextKeys.AuthenticatedScheme] as string
+		var scheme = invocation.EffectiveScheme
 					  ?? user.Principal.Identity?.AuthenticationType;
 
 		var boundary = resolver.Resolve(user, scheme);

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Subject-kind resolution at user-state assembly (step 0): `UserStateAccessor` resolves the
+  invocation's effective scheme (`OriginScheme ?? AuthenticatedScheme`) through
+  `ISchemeClaimAuthorityMap` and stamps `IUserState.SubjectKind`. The map is resolved
+  optionally — a host with no registered map leaves the kind `Unknown`, preserving existing
+  behavior until the authentication runtime registers declarations.
+- `OriginScheme` travels the long-lived transports: the WebSocket orchestrator and the SignalR
+  hub filter copy the handshake stamp onto `Connection.Items` alongside `AuthenticatedScheme`
+  and `ApplicationUserCache`, and both per-invocation contexts seed it into invocation items,
+  so the subject facts of a ticket-established connection read uniformly across transports.
+
+### Changed
+
+- Application-user resolver dispatch and authentication-boundary resolution key on the
+  invocation's effective scheme instead of the authenticated scheme alone — a subject carried
+  by a session-ticket continuation or a Two-Phase Auth promotion resolves through the scheme
+  that established it, not the transport that re-presents it.
+- The app-name Name-claim fallback is gated on `SubjectKind.Machine` once a declaration map is
+  registered; a human subject with a deliberately thin token is never named after the calling
+  application. Without a map the legacy blank-name gate stands unchanged.
+
+### Fixed
+
+- The app-name fallback is fill-only: it no longer removes existing name claims before adding
+  the header-supplied value, so an unauthenticated header can never displace
+  credential-derived claims.
+
 ### Updated
 
 - Updated NuGet packages.

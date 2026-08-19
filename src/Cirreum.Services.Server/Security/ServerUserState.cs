@@ -42,6 +42,10 @@ internal sealed class ServerUserState : ServerUserBase {
 		this.SetApplicationUser(applicationUser);
 	}
 
+	internal void SetResolvedSubjectKind(SubjectKind subjectKind) {
+		this.SubjectKind = subjectKind;
+	}
+
 	internal void SetResolvedAuthenticationBoundary(AuthenticationBoundary boundary) {
 		this.SetAuthenticationBoundary(boundary);
 	}

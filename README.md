@@ -10,15 +10,14 @@
 
 ## Overview
 
-**Cirreum.Services.Server** provides essential infrastructure services for .NET server applications (Web API and Web App). This library offers a comprehensive foundation with enterprise-grade patterns for exception handling, caching, security, health checks, and file system operations.
+**Cirreum.Services.Server** provides essential infrastructure services for .NET server applications (Web API and Web App). This library offers a comprehensive foundation with enterprise-grade patterns for invocation contexts, user-state assembly, exception handling, health checks, and file system operations.
 
 ## Features
 
-- **Invocation Context Bridge**: HTTP→`IInvocationContext` middleware that publishes a unified, transport-agnostic per-invocation seam consumed by framework code (CQRS handlers, authorization, audit, repositories)
+- **Invocation Contexts**: HTTP, WebSocket, and SignalR invocations behind one transport-agnostic `IInvocationContext` seam consumed by framework code (CQRS handlers, authorization, audit, repositories); long-lived transports seed each invocation with the connection's authentication slots (`AuthenticatedScheme`, `OriginScheme`, `ApplicationUserCache`) so subject facts read uniformly across sources
 - **Connection Registry & Termination**: a per-server registry of active long-lived connections (SignalR, WebSocket) plus the framework-shipped terminator that reacts to `CredentialRevoked` / `UserAccountDisabled` / `SessionTerminationRequested` auth events by aborting the subject's live connections — revocation reaches open sockets, not just future requests. Honors Two-Phase Auth promotion (promoted connections are attributed to their promoted identity)
 - **Global Exception Handling**: RFC 7807 compliant Problem Details with environment-aware responses
-- **Hybrid Caching**: Modern caching infrastructure with tag-based invalidation and smart expiration policies  
-- **Security Services**: Claims-based user context management and authentication integration
+- **User-State Assembly**: per-invocation `IUserState` built from the snapshotted principal — subject kind resolved from the effective scheme's declaration (`ISchemeClaimAuthorityMap`, optional), application-user and boundary resolution dispatched on the effective scheme, and a fill-only app-name fallback for machine callers
 - **Health Checks**: Application readiness probes and startup health monitoring
 - **File System Services**: Resilient local file operations with CSV processing capabilities
 - **DateTime Services**: Timezone-aware clock services with TimeProvider integration
@@ -57,7 +56,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseInvocationContext();   // ← here: AuthN/AuthZ resolved, ready for endpoint
-app.MapEndpoints();
+app.MapApiEndpoints();
 ```
 
 > Apps using `Cirreum.Runtime.Server`'s `Build()` composition pick up `UseInvocationContext()` automatically — no manual wiring required.
@@ -66,7 +65,7 @@ app.MapEndpoints();
 
 The library provides extension methods for clean service registration:
 
-- `AddCoreServices()` - Registers `IInvocationContextAccessor` (singleton, AsyncLocal-backed), file system, datetime, security, and caching services
+- `AddCoreServices()` - Registers `IInvocationContextAccessor` (singleton, AsyncLocal-backed), user-state assembly (with the Kernel default authentication-boundary resolver), file system, and datetime services
 - `AddGlobalExceptionHandling()` - Configures RFC 7807 exception handling pipeline
 - `AddDefaultHealthChecks()` - Sets up health check infrastructure with startup monitoring
 
