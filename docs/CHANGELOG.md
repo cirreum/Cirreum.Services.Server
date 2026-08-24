@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* **Query-carried credentials are accepted on connection endpoints.** A browser cannot set
+  request headers on a WebSocket upgrade, so a client connecting over WebSockets sends its
+  bearer token as an `access_token` query parameter — the convention SignalR's own clients
+  follow, and the only one available to them. No scheme read it, so the upgrade was refused
+  and SignalR fell back to Server-Sent Events or long polling: the application kept working,
+  never used WebSockets, and nothing reported the downgrade.
+
+  `UseConnectionCredential()` promotes such a credential into the `Authorization` header
+  before authentication runs, so every scheme and every scheme selector reads it from the one
+  place they always have, and none of them need to know the case exists. The value is
+  promoted verbatim, so a scheme prefix carried inside the credential continues to route
+  dispatch. Register between `UseRouting` and `UseAuthentication`; `Cirreum.Runtime.Server`
+  does so in its default pipeline.
+
+  The promotion applies only where a client has no alternative: the endpoint must be a
+  SignalR hub or carry `InvocationConnectionMetadata`, and the request must not already have
+  an `Authorization` header — one that is present wins, whatever scheme it names. A query
+  parameter on any other endpoint is left alone and carries no authority.
+* **`MapWebSocketHandler` stamps `InvocationConnectionMetadata`** (`Cirreum.Contracts` 4.7.0)
+  on the endpoints it maps, declaring that their invocations arrive over an
+  `IInvocationConnection`. SignalR hubs need no stamp — they carry SignalR's own hub metadata.
+
+### Updated
+
+- Updated NuGet packages.
+
 ## [1.5.1] - 2026-08-20
 
 ### Updated

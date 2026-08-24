@@ -152,6 +152,24 @@ public static class HostingExtensions {
 	// ---------------------------------------------------------
 
 	/// <summary>
+	/// Adds the middleware that promotes a query-carried bearer credential into the
+	/// <c>Authorization</c> header on endpoints whose invocations arrive over a long-lived
+	/// connection. Register between <c>UseRouting</c> and <c>UseAuthentication</c>: the
+	/// endpoint must be resolved for the scoping test, and the header must be in place before
+	/// any authentication scheme reads it.
+	/// </summary>
+	/// <remarks>
+	/// A browser cannot set headers on a WebSocket upgrade, so its credential arrives in the
+	/// query. Promoting it means every scheme reads the credential where it always has.
+	/// </remarks>
+	public static IApplicationBuilder UseConnectionCredential(this IApplicationBuilder app) {
+
+		ArgumentNullException.ThrowIfNull(app);
+		return app.UseMiddleware<ConnectionCredentialMiddleware>();
+
+	}
+
+	/// <summary>
 	/// Adds the HTTP→<c>IInvocationContext</c> bridge middleware. Register late —
 	/// after <c>UseAuthentication</c> / <c>UseAuthorization</c>, before endpoint
 	/// execution — so the snapshotted invocation reflects the fully-resolved

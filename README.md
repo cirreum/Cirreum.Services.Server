@@ -53,13 +53,14 @@ using Microsoft.AspNetCore.Builder;
 
 app.UseExceptionHandler();
 app.UseRouting();
+app.UseConnectionCredential();   // ← routing resolved, before any scheme reads the header
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseInvocationContext();   // ← here: AuthN/AuthZ resolved, ready for endpoint
 app.MapApiEndpoints();
 ```
 
-> Apps using `Cirreum.Runtime.Server`'s `Build()` composition pick up `UseInvocationContext()` automatically — no manual wiring required.
+> Apps using `Cirreum.Runtime.Server`'s `Build()` composition pick up both `UseConnectionCredential()` and `UseInvocationContext()` automatically — no manual wiring required.
 
 ## Service Registration
 
@@ -71,6 +72,7 @@ The library provides extension methods for clean service registration:
 
 ## Pipeline Extensions
 
+- `UseConnectionCredential()` - Promotes a query-carried bearer credential (`?access_token=…`) into the `Authorization` header on SignalR hubs and other connection endpoints, so every authentication scheme reads it where it always has. A browser cannot set headers on a WebSocket upgrade, so this is the only credential such a client can present; without it SignalR silently falls back to Server-Sent Events or long polling. Scoped to connection endpoints, and never overrides an `Authorization` header that is already present. Register between `UseRouting()` and `UseAuthentication()`.
 - `UseInvocationContext()` - Publishes an `IInvocationContext` for every HTTP request through `IInvocationContextAccessor`. Snapshots `User` (immutable for the invocation), aliases `HttpContext.Items` (same dictionary reference — existing `AuthenticationContextKeys` slots flow through transparently), and exposes `RequestServices` / `RequestAborted` through the unified seam. Register late — after `UseAuthentication()` / `UseAuthorization()`, before endpoint execution.
 
 ## Architecture

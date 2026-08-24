@@ -1,5 +1,6 @@
 namespace Microsoft.AspNetCore.Builder;
 
+using Cirreum.Invocation.Connections;
 using Cirreum.Invocation.WebSockets;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -48,7 +49,12 @@ public static class WebSocketHandlerEndpointExtensions {
 			.Map(path, async (HttpContext context) =>
 				await orchestrator.HandleWebSocketAsync(
 					context, typeof(THandler), options, context.RequestAborted))
-			.WithMetadata(new ExcludeFromDescriptionAttribute());
+			.WithMetadata(new ExcludeFromDescriptionAttribute())
+			// Declares that this endpoint's invocations arrive over an IInvocationConnection.
+			// Authentication reads it to accept a query-carried bearer credential here, which a
+			// browser has no alternative to on a WebSocket upgrade. SignalR hubs need no stamp -
+			// they carry SignalR's own hub metadata.
+			.WithMetadata(InvocationConnectionMetadata.Instance);
 	}
 
 }
