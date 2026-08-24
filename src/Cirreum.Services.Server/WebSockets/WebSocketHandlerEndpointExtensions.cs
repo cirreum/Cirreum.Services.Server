@@ -2,7 +2,6 @@ namespace Microsoft.AspNetCore.Builder;
 
 using Cirreum.Invocation.Connections;
 using Cirreum.Invocation.WebSockets;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -46,8 +45,7 @@ public static class WebSocketHandlerEndpointExtensions {
 		// RFC 6455) OR CONNECT (HTTP/2+, RFC 8441/9220). Restricting to GET would 405 HTTP/2+
 		// clients. Excluded from OpenAPI/Swagger — WebSocket isn't a REST operation.
 		return endpoints
-			.Map(path, async (HttpContext context) =>
-				await orchestrator.HandleWebSocketAsync(
+			.Map(path, async context => await orchestrator.HandleWebSocketAsync(
 					context, typeof(THandler), options, context.RequestAborted))
 			.WithMetadata(new ExcludeFromDescriptionAttribute())
 			// Declares that this endpoint's invocations arrive over an IInvocationConnection.
