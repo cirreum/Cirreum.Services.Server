@@ -14,12 +14,12 @@
 		<!--
 			Service library composing over the server spine.
 		-->
-		<PackageReference Include="Cirreum.Domain" Version="5.0.0" />
+		<PackageReference Include="Cirreum.Domain" Version="5.0.1" />
 
 		<!-- Direct reference for InvocationConnectionMetadata, stamped on the connection
 		     endpoints this package maps. Foundational, not an authentication-track package:
 		     the marker states a connection fact, and authentication merely reads it. -->
-		<PackageReference Include="Cirreum.Contracts" Version="5.0.0" />
+		<PackageReference Include="Cirreum.Contracts" Version="6.0.0" />
 
 		<PackageReference Include="FluentValidation" Version="12.1.1" />
 		<PackageReference Include="Polly" Version="8.7.0" />
