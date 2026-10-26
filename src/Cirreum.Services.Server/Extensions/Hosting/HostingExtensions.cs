@@ -8,6 +8,7 @@ using Cirreum.Health;
 using Cirreum.Http.Invocation;
 using Cirreum.Invocation;
 using Cirreum.Invocation.Connections;
+using Cirreum.Invocation.Host;
 using Cirreum.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
@@ -59,6 +60,24 @@ public static class HostingExtensions {
 			.TryAddSingleton<IInvocationContextAccessor, InvocationContextAccessor>();
 		services
 			.AddScoped<IUserStateAccessor, UserStateAccessor>();
+
+		//
+		// Host invocations — work the host starts on its own behalf. The host scheme is
+		// declared as a machine scheme through the same registration record the
+		// authentication providers file, so a composed ISchemeClaimAuthorityMap resolves it
+		// without knowing it exists.
+		//
+		services
+			.TryAddSingleton<IHostInvocationFactory, HostInvocationFactory>();
+		services
+			.AddOptions<HostInvocationFactoryOptions>()
+			.BindConfiguration("Cirreum:Invocation:Host");
+		services
+			.AddSingleton(new SchemeClaimAuthorityRegistration(
+				HostInvocationDefaults.Scheme,
+				SubjectKind.Machine,
+				ClaimAuthority.Unspecified,
+				ClaimAuthority.Unspecified));
 
 		// The default IAuthenticationBoundaryResolver is deliberately NOT registered
 		// here: AddCoreServices runs at builder construction, before the app's

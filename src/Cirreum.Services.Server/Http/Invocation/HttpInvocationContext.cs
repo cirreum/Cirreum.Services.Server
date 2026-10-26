@@ -18,7 +18,7 @@ using System.Security.Claims;
 /// </remarks>
 internal sealed class HttpInvocationContext(
 	HttpContext http
-) : IInvocationContext {
+) : IInvocationContext, IInvocationAppName {
 
 	public ClaimsPrincipal User => http.User;
 
@@ -35,8 +35,9 @@ internal sealed class HttpInvocationContext(
 
 	/// <summary>
 	/// App-name header value (<see cref="RemoteIdentityConstants.AppNameHeader"/>) snapshotted
-	/// at middleware entry. Internal seam consumed by <c>UserStateAccessor</c> via feature-check cast,
-	/// avoiding a re-read against <see cref="IHttpContextAccessor"/> mid-pipeline.
+	/// at middleware entry. Consumed by <c>UserStateAccessor</c> through
+	/// <see cref="IInvocationAppName"/>, avoiding a re-read against
+	/// <see cref="IHttpContextAccessor"/> mid-pipeline.
 	/// </summary>
 	public string? AppName => http.Request.Headers[RemoteIdentityConstants.AppNameHeader];
 

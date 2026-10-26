@@ -69,7 +69,7 @@ sealed class UserStateAccessor(
 		// none, and never removes or overwrites credential-derived claims. The machine gate
 		// applies once a declaration map is registered; without one the subject kind is
 		// unresolvable and the legacy blank-name gate stands.
-		var appName = (invocation as HttpInvocationContext)?.AppName;
+		var appName = (invocation as IInvocationAppName)?.AppName;
 		if (!string.IsNullOrWhiteSpace(appName) &&
 			principal.Identity is ClaimsIdentity identity) {
 			if ((map is null || subjectKind is SubjectKind.Machine)

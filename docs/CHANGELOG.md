@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Host invocations.** `IHostInvocationFactory` is registered by `AddCoreServices`. `Begin`
+  establishes an `IInvocationContext` for work the host starts on its own behalf: a fresh
+  `Items` bag stamped with the `Cirreum.Host` scheme, a root-derived async service scope,
+  cancellation linked to `IHostApplicationLifetime.ApplicationStopping` and the caller's
+  token, no connection. The default principal names the host application (`sub` and `name`
+  from `IHostEnvironment.ApplicationName`) and is minted per invocation. A supplied `User`
+  is cloned, never modified; `Roles` are minted on a host-scheme identity added beside the
+  caller's, and `OriginScheme` is stamped so subject kind, boundary and application user
+  resolve for the subject rather than for the host. `Begin` throws when an invocation is
+  already current.
+- **`HostInvocationFactoryOptions.DefaultRoles`** — bound from `Cirreum:Invocation:Host`;
+  the roles minted when a call supplies none. Empty by default.
+- **The `Cirreum.Host` scheme is declared `SubjectKind.Machine`** through a
+  `SchemeClaimAuthorityRegistration` filed by `AddCoreServices`, so a composed scheme map
+  resolves host work as a machine subject.
+
+### Changed
+
+- `UserStateAccessor` reads the caller's app name through an internal seam shared by the
+  HTTP and host invocation contexts instead of a cast to the HTTP type. Behaviour for HTTP
+  invocations is unchanged.
+
 ## [1.6.4] - 2026-10-25
 
 ### Updated
