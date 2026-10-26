@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Removed the direct `Cirreum.Contracts` reference.** The package references `Cirreum.Domain`,
+  which brings Contracts and Kernel; a second entry into the triad pinned a floor the spine owns.
+  No behaviour change; the resolved Contracts version is unchanged.
+
 ## [1.7.0] - 2026-10-26
 
 ### Added
